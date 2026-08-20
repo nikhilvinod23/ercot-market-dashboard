@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="ERCOT market operations dashboard prototype" />
+    <title>ERCOT Market Pulse</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <div class="brand-lockup">
+          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div>
+            <p class="eyebrow">Texas grid intelligence</p>
+            <p class="brand-name">Market Pulse</p>
+          </div>
+        </div>
+
+        <div class="demo-badge"><span class="status-dot"></span> Prototype mode</div>
+
+        <nav class="nav-list">
+          <a class="nav-item active" href="#overview" data-section="Overview"><span class="nav-icon">◈</span> Overview</a>
+          <a class="nav-item" href="#prices" data-section="Prices"><span class="nav-icon">⌁</span> Prices</a>
+          <a class="nav-item" href="#generation" data-section="Generation"><span class="nav-icon">◒</span> Generation</a>
+          <a class="nav-item" href="#demand" data-section="Demand &amp; load"><span class="nav-icon">◫</span> Demand &amp; load</a>
+          <a class="nav-item" href="#outages" data-section="Outages"><span class="nav-icon">△</span> Outages</a>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="system-status">
+            <div class="status-heading"><span class="status-dot"></span><span>System status</span><span class="live-label">DEMO</span></div>
+            <p>Data connections are not configured.</p>
+            <div class="status-bar"><span></span></div>
+            <div class="status-meta"><span>Last sync</span><span>—</span></div>
+          </div>
+          <button class="sidebar-help" type="button" data-toast="Documentation will be added with the data layer."><span>?</span> How this works</button>
+          <div class="user-chip"><div class="avatar">AM</div><div><strong>Analyst mode</strong><small>Local prototype</small></div><span class="more">•••</span></div>
+        </div>
+      </aside>
+
+      <main class="main-content" id="overview">
+        <header class="topbar">
+          <div class="breadcrumb"><span>Market intelligence</span><span>/</span><strong>Overview</strong></div>
+          <div class="topbar-actions">
+            <span class="demo-note"><span class="status-dot"></span> Demo data only</span>
+            <button class="icon-button" type="button" aria-label="Notifications" data-toast="No new notifications in prototype mode.">♧<i></i></button>
+            <button class="refresh-button" id="refresh-button" type="button"><span>↻</span> Refresh view</button>
+          </div>
+        </header>
+
+        <section class="page-heading">
+          <div>
+            <p class="section-kicker">Thursday, August 20, 2026 <span class="heading-divider"></span> 14:32 CT</p>
+            <h1>Good afternoon, Alex.</h1>
+            <p class="heading-copy">A quick read on the ERCOT market, from system demand to real-time pricing.</p>
+          </div>
+          <div class="date-control"><span class="calendar-icon">▣</span><span>Today</span><span class="chevron">⌄</span></div>
+        </section>
+
+        <section class="kpi-grid" aria-label="Market summary">
+          <article class="kpi-card accent-teal">
+            <div class="kpi-top"><span class="kpi-label">System demand</span><span class="kpi-icon">↗</span></div>
+            <div class="kpi-value">62,418 <span>MW</span></div>
+            <div class="kpi-foot"><span class="trend up">↑ 4.8%</span><span>vs. same time yesterday</span></div>
+            <div class="sparkline teal"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          </article>
+          <article class="kpi-card accent-coral">
+            <div class="kpi-top"><span class="kpi-label">Avg. real-time price</span><span class="kpi-icon">$</span></div>
+            <div class="kpi-value">$42.17 <span>/ MWh</span></div>
+            <div class="kpi-foot"><span class="trend down">↓ 11.2%</span><span>vs. same time yesterday</span></div>
+            <div class="sparkline coral"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          </article>
+          <article class="kpi-card accent-gold">
+            <div class="kpi-top"><span class="kpi-label">Renewable share</span><span class="kpi-icon">✦</span></div>
+            <div class="kpi-value">38.6 <span>%</span></div>
+            <div class="kpi-foot"><span class="trend up">↑ 2.1 pts</span><span>vs. same time yesterday</span></div>
+            <div class="sparkline gold"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          </article>
+          <article class="kpi-card accent-purple">
+            <div class="kpi-top"><span class="kpi-label">Available capacity</span><span class="kpi-icon">◇</span></div>
+            <div class="kpi-value">84,762 <span>MW</span></div>
+            <div class="kpi-foot"><span class="trend neutral">→ 0.4%</span><span>vs. same time yesterday</span></div>
+            <div class="sparkline purple"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          </article>
+        </section>
+
+        <section class="dashboard-grid">
+          <article class="panel price-panel" id="prices">
+            <div class="panel-heading">
+              <div><p class="panel-kicker">Market pulse</p><h2>Real-time price</h2></div>
+              <div class="range-tabs" role="group" aria-label="Chart range">
+                <button class="range-tab" type="button">24H</button><button class="range-tab active" type="button">7D</button><button class="range-tab" type="button">30D</button>
+              </div>
+            </div>
+            <div class="price-reading"><strong>$42.17</strong><span>/ MWh</span><em>Low volatility</em></div>
+            <div class="chart-wrap">
+              <div class="chart-y-axis"><span>$120</span><span>$80</span><span>$40</span><span>$0</span></div>
+              <svg class="price-chart" viewBox="0 0 800 230" role="img" aria-label="Illustrative seven day real-time price trend">
+                <defs><linearGradient id="areaFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#e36a4d" stop-opacity=".22"/><stop offset="100%" stop-color="#e36a4d" stop-opacity="0"/></linearGradient></defs>
+                <line x1="0" y1="20" x2="800" y2="20" class="grid-line"/><line x1="0" y1="82" x2="800" y2="82" class="grid-line"/><line x1="0" y1="144" x2="800" y2="144" class="grid-line"/><line x1="0" y1="206" x2="800" y2="206" class="grid-line"/>
+                <path d="M0,153 C30,145 40,118 71,125 S118,173 151,151 S194,80 231,103 S270,166 307,136 S346,107 384,119 S429,53 464,88 S516,157 548,124 S592,112 625,131 S664,65 697,94 S741,116 800,76 L800,206 L0,206Z" fill="url(#areaFill)"/>
+                <path d="M0,153 C30,145 40,118 71,125 S118,173 151,151 S194,80 231,103 S270,166 307,136 S346,107 384,119 S429,53 464,88 S516,157 548,124 S592,112 625,131 S664,65 697,94 S741,116 800,76" fill="none" stroke="#e36a4d" stroke-width="3" stroke-linecap="round"/>
+                <circle cx="800" cy="76" r="5" fill="#e36a4d" stroke="#fff" stroke-width="3"/>
+              </svg>
+            </div>
+            <div class="chart-x-axis"><span>Aug 14</span><span>Aug 15</span><span>Aug 16</span><span>Aug 17</span><span>Aug 18</span><span>Aug 19</span><span>Aug 20</span></div>
+            <div class="chart-footer"><span><i class="legend-line"></i> ERCOT average</span><span class="mock-label">Illustrative values · not connected</span></div>
+          </article>
+
+          <article class="panel mix-panel" id="generation">
+            <div class="panel-heading"><div><p class="panel-kicker">Supply stack</p><h2>Generation mix</h2></div><button class="more-button" type="button" data-toast="Generation details are not available in prototype mode.">•••</button></div>
+            <div class="mix-summary"><div class="donut"><div><strong>84,762</strong><span>MW total</span></div></div><div class="mix-total"><span>Renewables</span><strong>38.6%</strong><small>of current generation</small></div></div>
+            <div class="mix-list">
+              <div class="mix-row"><span class="mix-name"><i class="mix-dot wind"></i>Wind</span><strong>24,180 <small>MW</small></strong><span class="mix-percent">28.5%</span></div>
+              <div class="mix-row"><span class="mix-name"><i class="mix-dot gas"></i>Natural gas</span><strong>22,436 <small>MW</small></strong><span class="mix-percent">26.5%</span></div>
+              <div class="mix-row"><span class="mix-name"><i class="mix-dot solar"></i>Solar</span><strong>8,541 <small>MW</small></strong><span class="mix-percent">10.1%</span></div>
+              <div class="mix-row"><span class="mix-name"><i class="mix-dot nuclear"></i>Nuclear</span><strong>5,118 <small>MW</small></strong><span class="mix-percent">6.0%</span></div>
+              <div class="mix-row"><span class="mix-name"><i class="mix-dot other"></i>Other</span><strong>24,487 <small>MW</small></strong><span class="mix-percent">28.9%</span></div>
+            </div>
+          </article>
+
+          <article class="panel alerts-panel" id="outages">
+            <div class="panel-heading"><div><p class="panel-kicker">Watchlist</p><h2>Market alerts</h2></div><span class="alert-count">3 active</span></div>
+            <div class="alert-list">
+              <div class="alert-row high"><div class="alert-symbol">!</div><div><strong>North Hub congestion</strong><p>Illustrative alert · review transmission constraints</p></div><span class="alert-time">12m</span></div>
+              <div class="alert-row medium"><div class="alert-symbol">↗</div><div><strong>Wind forecast shift</strong><p>Illustrative alert · forecast variance above threshold</p></div><span class="alert-time">28m</span></div>
+              <div class="alert-row low"><div class="alert-symbol">i</div><div><strong>Reserve margin normal</strong><p>Illustrative status · no action required</p></div><span class="alert-time">1h</span></div>
+            </div>
+            <button class="text-button" type="button" data-toast="Alert history will be available when live data is connected.">View alert history <span>→</span></button>
+          </article>
+
+          <article class="panel load-panel" id="demand">
+            <div class="panel-heading"><div><p class="panel-kicker">System conditions</p><h2>Demand outlook</h2></div><span class="confidence"><i></i> Forecast</span></div>
+            <div class="load-reading"><div><strong>62,418</strong><span>MW current demand</span></div><div class="peak-block"><small>Today's peak</small><strong>71,906 <em>MW</em></strong><span>expected at 17:30 CT</span></div></div>
+            <div class="load-meter"><div class="meter-label"><span>Current load</span><span>87% of forecast peak</span></div><div class="meter-track"><span></span><b></b></div><div class="meter-axis"><span>50k</span><span>60k</span><span>70k</span><span>80k MW</span></div></div>
+            <div class="load-note"><span>◷</span><p>Illustrative forecast: system demand is expected to remain below the seasonal watch threshold through the evening ramp.</p></div>
+          </article>
+        </section>
+
+        <footer class="footer"><span><i class="status-dot"></i> Prototype interface</span><span>Live data integrations will be added in a future phase.</span></footer>
+      </main>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
