@@ -24,11 +24,12 @@
         <div class="demo-badge"><span class="status-dot"></span> Prototype mode</div>
 
         <nav class="nav-list">
-          <a class="nav-item active" href="#overview" data-section="Overview"><span class="nav-icon">◈</span> Overview</a>
-          <a class="nav-item" href="#prices" data-section="Prices"><span class="nav-icon">⌁</span> Prices</a>
-          <a class="nav-item" href="#generation" data-section="Generation"><span class="nav-icon">◒</span> Generation</a>
-          <a class="nav-item" href="#demand" data-section="Demand &amp; load"><span class="nav-icon">◫</span> Demand &amp; load</a>
-          <a class="nav-item" href="#outages" data-section="Outages"><span class="nav-icon">△</span> Outages</a>
+          <a class="nav-item active" href="#view-overview" data-view="overview"><span class="nav-icon">◈</span> Overview</a>
+          <a class="nav-item" href="#view-prices" data-view="prices"><span class="nav-icon">⌁</span> Prices</a>
+          <a class="nav-item" href="#view-demand" data-view="demand"><span class="nav-icon">◫</span> Demand &amp; load</a>
+          <a class="nav-item" href="#view-supply" data-view="supply"><span class="nav-icon">◒</span> Supply</a>
+          <a class="nav-item" href="#view-reliability" data-view="reliability"><span class="nav-icon">◇</span> Reliability</a>
+          <a class="nav-item" href="#view-congestion" data-view="congestion"><span class="nav-icon">△</span> Congestion &amp; events</a>
         </nav>
 
         <div class="sidebar-bottom">
@@ -43,9 +44,9 @@
         </div>
       </aside>
 
-      <main class="main-content" id="overview">
+      <main class="main-content" id="app">
         <header class="topbar">
-          <div class="breadcrumb"><span>Market intelligence</span><span>/</span><strong>Overview</strong></div>
+          <div class="breadcrumb"><span>Market intelligence</span><span>/</span><strong id="breadcrumb-section">Overview</strong></div>
           <div class="topbar-actions">
             <span class="demo-note"><span class="status-dot"></span> Demo data only</span>
             <button class="icon-button" type="button" aria-label="Notifications" data-toast="No new notifications in prototype mode.">♧<i></i></button>
@@ -56,12 +57,13 @@
         <section class="page-heading">
           <div>
             <p class="section-kicker">Thursday, August 20, 2026 <span class="heading-divider"></span> 14:32 CT</p>
-            <h1>Good afternoon, Alex.</h1>
-            <p class="heading-copy">A quick read on the ERCOT market, from system demand to real-time pricing.</p>
+            <h1 id="page-title">Good afternoon, Alex.</h1>
+            <p class="heading-copy" id="heading-copy">A quick read on the ERCOT market, from system demand to real-time pricing.</p>
           </div>
           <div class="date-control"><span class="calendar-icon">▣</span><span>Today</span><span class="chevron">⌄</span></div>
         </section>
 
+        <section class="view-panel active" data-view-panel="overview" id="view-overview">
         <section class="kpi-grid" aria-label="Market summary">
           <article class="kpi-card accent-teal">
             <div class="kpi-top"><span class="kpi-label">System demand</span><span class="kpi-icon">↗</span></div>
@@ -112,7 +114,7 @@
             <div class="chart-footer"><span><i class="legend-line"></i> ERCOT average</span><span class="mock-label">Illustrative values · not connected</span></div>
           </article>
 
-          <article class="panel mix-panel" id="generation">
+          <article class="panel mix-panel" id="overview-generation">
             <div class="panel-heading"><div><p class="panel-kicker">Supply stack</p><h2>Generation mix</h2></div><button class="more-button" type="button" data-toast="Generation details are not available in prototype mode.">•••</button></div>
             <div class="mix-summary"><div class="donut"><div><strong>84,762</strong><span>MW total</span></div></div><div class="mix-total"><span>Renewables</span><strong>38.6%</strong><small>of current generation</small></div></div>
             <div class="mix-list">
@@ -124,7 +126,7 @@
             </div>
           </article>
 
-          <article class="panel alerts-panel" id="outages">
+          <article class="panel alerts-panel" id="overview-alerts">
             <div class="panel-heading"><div><p class="panel-kicker">Watchlist</p><h2>Market alerts</h2></div><span class="alert-count">3 active</span></div>
             <div class="alert-list">
               <div class="alert-row high"><div class="alert-symbol">!</div><div><strong>North Hub congestion</strong><p>Illustrative alert · review transmission constraints</p></div><span class="alert-time">12m</span></div>
@@ -134,12 +136,57 @@
             <button class="text-button" type="button" data-toast="Alert history will be available when live data is connected.">View alert history <span>→</span></button>
           </article>
 
-          <article class="panel load-panel" id="demand">
+          <article class="panel load-panel" id="overview-demand">
             <div class="panel-heading"><div><p class="panel-kicker">System conditions</p><h2>Demand outlook</h2></div><span class="confidence"><i></i> Forecast</span></div>
             <div class="load-reading"><div><strong>62,418</strong><span>MW current demand</span></div><div class="peak-block"><small>Today's peak</small><strong>71,906 <em>MW</em></strong><span>expected at 17:30 CT</span></div></div>
             <div class="load-meter"><div class="meter-label"><span>Current load</span><span>87% of forecast peak</span></div><div class="meter-track"><span></span><b></b></div><div class="meter-axis"><span>50k</span><span>60k</span><span>70k</span><span>80k MW</span></div></div>
             <div class="load-note"><span>◷</span><p>Illustrative forecast: system demand is expected to remain below the seasonal watch threshold through the evening ramp.</p></div>
           </article>
+        </section>
+        </section>
+
+        <section class="view-panel" data-view-panel="prices" id="view-prices">
+          <div class="view-intro"><div><p class="panel-kicker">Nodal market view</p><h2>Prices across the ERCOT system</h2><p>Compare real-time and day-ahead pricing from the system level down to individual locations.</p></div><span class="api-chip">API-ready · no connection</span></div>
+          <div class="view-grid two-up">
+            <article class="panel price-board-panel">
+              <div class="panel-heading"><div><p class="panel-kicker">Market layer</p><h2>Price board</h2></div><button class="more-button" type="button" data-toast="Price filters will be wired to ERCOT reports later.">•••</button></div>
+              <div class="filter-chips" role="group" aria-label="Price layer"><button class="filter-chip active" type="button">Hubs</button><button class="filter-chip" type="button">Load zones</button><button class="filter-chip" type="button">Nodes</button><button class="filter-chip" type="button">Buses</button></div>
+              <div class="price-board"><div class="board-row board-header"><span>Location</span><span>RTM</span><span>DAM</span><span>Spread</span></div><div class="board-row"><span><strong>HB_HOUSTON</strong><small>Trading hub</small></span><strong>$42.17</strong><span>$39.88</span><b class="positive">+$2.29</b></div><div class="board-row"><span><strong>HB_NORTH</strong><small>Trading hub</small></span><strong>$38.54</strong><span>$40.12</span><b class="negative">−$1.58</b></div><div class="board-row"><span><strong>HB_WEST</strong><small>Trading hub</small></span><strong>$47.83</strong><span>$43.19</span><b class="positive">+$4.64</b></div><div class="board-row"><span><strong>HB_SOUTH</strong><small>Trading hub</small></span><strong>$41.09</strong><span>$39.74</span><b class="positive">+$1.35</b></div></div>
+              <div class="panel-note">Illustrative values · RTM and DAM price feeds are not connected.</div>
+            </article>
+            <article class="panel spread-panel">
+              <div class="panel-heading"><div><p class="panel-kicker">Locational spread</p><h2>Where is price moving?</h2></div><span class="confidence"><i></i> Demo snapshot</span></div>
+              <div class="spread-bars"><div class="spread-row"><span>West / North</span><div class="spread-track"><i style="width: 82%"></i></div><strong>+$9.29</strong></div><div class="spread-row"><span>Houston / North</span><div class="spread-track"><i style="width: 54%"></i></div><strong>+$3.63</strong></div><div class="spread-row"><span>South / North</span><div class="spread-track"><i style="width: 31%"></i></div><strong>+$2.55</strong></div><div class="spread-row"><span>West / Houston</span><div class="spread-track"><i class="negative-fill" style="width: 19%"></i></div><strong class="negative">−$5.66</strong></div></div>
+              <div class="location-callout"><span>⌁</span><p>Use node or bus-level LMPs to investigate the source of a hub or zone spread.</p></div>
+            </article>
+          </div>
+          <article class="panel table-panel"><div class="panel-heading"><div><p class="panel-kicker">Selectable locations</p><h2>Settlement point detail</h2></div><span class="table-meta">5 sample locations · updated —</span></div><div class="data-table"><div class="table-row table-header"><span>Settlement point</span><span>Type</span><span>RTM LMP</span><span>DAM SPP</span><span>Δ vs DAM</span></div><div class="table-row"><span><strong>HB_HOUSTON</strong></span><span>Hub</span><span>$42.17/MWh</span><span>$39.88/MWh</span><b class="positive">+5.7%</b></div><div class="table-row"><span><strong>LZ_HOUSTON</strong></span><span>Load zone</span><span>$43.08/MWh</span><span>$40.25/MWh</span><b class="positive">+7.0%</b></div><div class="table-row"><span><strong>BUS_345KV_DEMO</strong></span><span>Electrical bus</span><span>$58.72/MWh</span><span>—</span><b class="positive">High</b></div><div class="table-row"><span><strong>RN_WIND_DEMO</strong></span><span>Resource node</span><span>$31.49/MWh</span><span>$35.12/MWh</span><b class="negative">−10.3%</b></div></div></article>
+        </section>
+
+        <section class="view-panel" data-view-panel="demand" id="view-demand">
+          <div class="view-intro"><div><p class="panel-kicker">Load &amp; forecast</p><h2>Demand outlook</h2><p>Track current system demand against forecasts and the evening peak window.</p></div><span class="api-chip">API-ready · no connection</span></div>
+          <div class="metric-strip"><div><span>Current demand</span><strong>62,418 <small>MW</small></strong><b class="positive">↑ 4.8%</b></div><div><span>Forecast peak</span><strong>71,906 <small>MW</small></strong><em>17:30 CT</em></div><div><span>Forecast error</span><strong>2.1 <small>%</small></strong><b class="positive">Within range</b></div><div><span>Seven-day view</span><strong>6.4 <small>days</small></strong><em>available</em></div></div>
+          <div class="view-grid two-up"><article class="panel large-chart-panel"><div class="panel-heading"><div><p class="panel-kicker">Today</p><h2>Actual demand vs. forecast</h2></div><span class="confidence"><i></i> Illustrative</span></div><div class="demand-chart"><div class="chart-y-axis"><span>80k</span><span>70k</span><span>60k</span><span>50k</span></div><svg viewBox="0 0 760 240" role="img" aria-label="Illustrative demand actual versus forecast chart"><line x1="0" y1="25" x2="760" y2="25" class="grid-line"/><line x1="0" y1="88" x2="760" y2="88" class="grid-line"/><line x1="0" y1="151" x2="760" y2="151" class="grid-line"/><line x1="0" y1="214" x2="760" y2="214" class="grid-line"/><path d="M0 182 C70 176 100 164 146 167 S208 139 260 145 S324 112 376 128 S442 87 492 102 S557 64 603 76 S681 39 760 50" fill="none" stroke="#806eab" stroke-width="3" stroke-dasharray="7 7"/><path d="M0 192 C64 185 108 175 147 178 S210 148 260 155 S324 124 376 139 S440 100 492 110 S557 78 603 87 S681 50 760 63" fill="none" stroke="#2b8c88" stroke-width="3" stroke-linecap="round"/><circle cx="760" cy="63" r="5" fill="#2b8c88" stroke="#fff" stroke-width="3"/></svg></div><div class="chart-x-axis"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div><div class="chart-footer"><span><i class="legend-line teal-line"></i> Actual</span><span><i class="legend-line forecast-line"></i> Forecast</span><span class="mock-label">Illustrative values · not connected</span></div></article><article class="panel forecast-panel"><div class="panel-heading"><div><p class="panel-kicker">Forward view</p><h2>Seven-day forecast</h2></div><button class="more-button" type="button" data-toast="Forecast model selection will be added with ERCOT data.">•••</button></div><div class="forecast-list"><div><span>Thu · Aug 20</span><strong>71.9k</strong><i style="height: 86%"></i></div><div><span>Fri · Aug 21</span><strong>69.8k</strong><i style="height: 76%"></i></div><div><span>Sat · Aug 22</span><strong>68.1k</strong><i style="height: 67%"></i></div><div><span>Sun · Aug 23</span><strong>70.4k</strong><i style="height: 79%"></i></div><div><span>Mon · Aug 24</span><strong>73.2k</strong><i style="height: 92%"></i></div></div></article></div>
+          <article class="panel zone-panel"><div class="panel-heading"><div><p class="panel-kicker">Geography</p><h2>Load by weather zone</h2></div><span class="table-meta">Illustrative snapshot</span></div><div class="zone-bars"><div><span>North</span><i><b style="width: 79%"></b></i><strong>18,912 MW</strong></div><div><span>Houston</span><i><b style="width: 64%"></b></i><strong>15,284 MW</strong></div><div><span>South</span><i><b style="width: 56%"></b></i><strong>13,486 MW</strong></div><div><span>West</span><i><b style="width: 39%"></b></i><strong>9,742 MW</strong></div></div></article>
+        </section>
+
+        <section class="view-panel" data-view-panel="supply" id="view-supply">
+          <div class="view-intro"><div><p class="panel-kicker">Supply stack</p><h2>Generation &amp; storage</h2><p>See what is producing power now, how the mix is changing, and where renewables are landing against forecast.</p></div><span class="api-chip">API-ready · no connection</span></div>
+          <div class="view-grid three-up"><article class="panel supply-card"><span class="card-icon teal-icon">✦</span><span>Renewable share</span><strong>38.6%</strong><small>+2.1 pts vs. yesterday</small></article><article class="panel supply-card"><span class="card-icon gold-icon">↗</span><span>Wind output</span><strong>24,180 <small>MW</small></strong><small>28.5% of current generation</small></article><article class="panel supply-card"><span class="card-icon purple-icon">◇</span><span>Storage dispatch</span><strong>2,406 <small>MW</small></strong><small>1,128 MW charging · demo</small></article></div>
+          <div class="view-grid two-up"><article class="panel mix-panel large-mix-panel"><div class="panel-heading"><div><p class="panel-kicker">Current operating hour</p><h2>Generation mix by fuel</h2></div><span class="table-meta">84,762 MW total</span></div><div class="mix-stack"><div style="width: 28.5%; background: #2b8c88">Wind</div><div style="width: 26.5%; background: #d79a39">Gas</div><div style="width: 10.1%; background: #806eab">Solar</div><div style="width: 6%; background: #9bb8b2">Nuclear</div><div style="width: 28.9%; background: #d9dfdd">Other</div></div><div class="mix-legend"><span><i class="mix-dot wind"></i> Wind <b>28.5%</b></span><span><i class="mix-dot gas"></i> Gas <b>26.5%</b></span><span><i class="mix-dot solar"></i> Solar <b>10.1%</b></span><span><i class="mix-dot nuclear"></i> Nuclear <b>6.0%</b></span><span><i class="mix-dot other"></i> Other <b>28.9%</b></span></div><div class="panel-note">Fuel mix, wind/solar output, and storage feeds will be mapped to ERCOT public reports.</div></article><article class="panel renewable-panel"><div class="panel-heading"><div><p class="panel-kicker">Intermittent resources</p><h2>Renewable pulse</h2></div><span class="confidence"><i></i> Forecast</span></div><div class="renewable-row"><div><span>Wind actual</span><strong>24.2k MW</strong></div><div><span>Wind forecast</span><strong>25.6k MW</strong></div><b class="negative">−5.5%</b></div><div class="renewable-row"><div><span>Solar actual</span><strong>8.5k MW</strong></div><div><span>Solar forecast</span><strong>7.9k MW</strong></div><b class="positive">+7.6%</b></div><div class="renewable-chart"><i style="height: 44%"></i><i style="height: 58%"></i><i style="height: 51%"></i><i style="height: 69%"></i><i style="height: 61%"></i><i style="height: 84%"></i><i style="height: 76%"></i><i style="height: 92%"></i><i style="height: 88%"></i><i style="height: 100%"></i><i style="height: 94%"></i><i style="height: 82%"></i></div><div class="panel-note">Illustrative forecast variance · not connected.</div></article></div>
+        </section>
+
+        <section class="view-panel" data-view-panel="reliability" id="view-reliability">
+          <div class="view-intro"><div><p class="panel-kicker">Grid health</p><h2>Reliability &amp; adequacy</h2><p>Monitor available capacity, ancillary services, operating reserves, and the next six days of system adequacy.</p></div><span class="api-chip">API-ready · no connection</span></div>
+          <div class="view-grid three-up"><article class="panel reliability-card"><span>Available to SCED</span><strong>84,762 <small>MW</small></strong><b class="positive">Healthy headroom</b><div class="mini-meter"><i style="width: 76%"></i></div></article><article class="panel reliability-card"><span>Reserve margin</span><strong>18.4 <small>%</small></strong><b class="positive">Above watch level</b><div class="mini-meter gold-meter"><i style="width: 64%"></i></div></article><article class="panel reliability-card"><span>Ancillary services</span><strong>6,420 <small>MW</small></strong><b class="positive">Requirements met</b><div class="mini-meter purple-meter"><i style="width: 82%"></i></div></article></div>
+          <div class="view-grid two-up"><article class="panel adequacy-panel"><div class="panel-heading"><div><p class="panel-kicker">Current day + six days</p><h2>Short-term adequacy</h2></div><span class="table-meta">Hourly outlook</span></div><div class="data-table adequacy-table"><div class="table-row table-header"><span>Operating day</span><span>Peak demand</span><span>Online capacity</span><span>Headroom</span></div><div class="table-row"><span><strong>Thu · Aug 20</strong></span><span>71.9k MW</span><span>84.8k MW</span><b class="positive">12.9k</b></div><div class="table-row"><span><strong>Fri · Aug 21</strong></span><span>69.8k MW</span><span>83.2k MW</span><b class="positive">13.4k</b></div><div class="table-row"><span><strong>Sat · Aug 22</strong></span><span>68.1k MW</span><span>82.9k MW</span><b class="positive">14.8k</b></div><div class="table-row"><span><strong>Sun · Aug 23</strong></span><span>70.4k MW</span><span>82.1k MW</span><b class="positive">11.7k</b></div></div></article><article class="panel reserve-panel"><div class="panel-heading"><div><p class="panel-kicker">Ancillary services</p><h2>Reserve coverage</h2></div><span class="confidence"><i></i> Illustrative</span></div><div class="reserve-list"><div><span>Reg-Up</span><i><b style="width: 73%"></b></i><strong>1,240 MW</strong></div><div><span>Reg-Down</span><i><b style="width: 61%"></b></i><strong>980 MW</strong></div><div><span>RRS</span><i><b style="width: 88%"></b></i><strong>2,860 MW</strong></div><div><span>ECRS</span><i><b style="width: 49%"></b></i><strong>1,340 MW</strong></div></div><div class="load-note"><span>◇</span><p>Connect the ancillary-service capacity monitor to track awards, deployments, and frequency.</p></div></article></div>
+          <article class="panel status-banner"><div class="alert-symbol low">i</div><div><strong>System conditions are in normal range</strong><p>This is a prototype status banner. Live emergency alerts, reserve shortfalls, and outage impacts will be populated from ERCOT feeds.</p></div><span class="api-chip">Needs API</span></article>
+        </section>
+
+        <section class="view-panel" data-view-panel="congestion" id="view-congestion">
+          <div class="view-intro"><div><p class="panel-kicker">Transmission &amp; notices</p><h2>Congestion &amp; events</h2><p>Investigate binding constraints, location-driven price differences, market notices, and price corrections.</p></div><span class="api-chip">API-ready · no connection</span></div>
+          <div class="view-grid two-up"><article class="panel constraints-panel"><div class="panel-heading"><div><p class="panel-kicker">SCED / DAM</p><h2>Binding constraints</h2></div><span class="alert-count">3 demo items</span></div><div class="constraint-list"><div class="constraint-row"><div class="constraint-severity high">!</div><div><strong>North Hub import limit</strong><p>Illustrative constraint · Houston interface</p></div><b>$18.42</b><span>shadow price</span></div><div class="constraint-row"><div class="constraint-severity medium">↗</div><div><strong>West Texas export path</strong><p>Illustrative constraint · 345 kV corridor</p></div><b>$9.76</b><span>shadow price</span></div><div class="constraint-row"><div class="constraint-severity low">i</div><div><strong>South stability limit</strong><p>Illustrative constraint · monitored only</p></div><b>$2.14</b><span>shadow price</span></div></div><button class="text-button" type="button" data-toast="Constraint details require an ERCOT SCED data connection.">View constraint detail <span>→</span></button></article><article class="panel event-panel"><div class="panel-heading"><div><p class="panel-kicker">Activity feed</p><h2>Market events</h2></div><button class="more-button" type="button" data-toast="Event filters will be added with market notices.">•••</button></div><div class="event-list"><div><span class="event-time">14:18</span><i class="event-dot coral-event"></i><div><strong>North Hub congestion flagged</strong><p>Illustrative event · price spread crossed threshold</p></div></div><div><span class="event-time">13:42</span><i class="event-dot gold-event"></i><div><strong>Wind forecast revision</strong><p>Illustrative event · −1.4 GW from prior run</p></div></div><div><span class="event-time">12:05</span><i class="event-dot teal-event"></i><div><strong>Reserve margin normalized</strong><p>Illustrative event · no action required</p></div></div><div><span class="event-time">09:30</span><i class="event-dot purple-event"></i><div><strong>Daily market notice posted</strong><p>Illustrative event · review source notice</p></div></div></div></article></div>
+          <article class="panel notices-panel"><div class="panel-heading"><div><p class="panel-kicker">Public communications</p><h2>Notices &amp; price corrections</h2></div><span class="table-meta">Source: ERCOT public notices</span></div><div class="notice-grid"><div><span class="notice-type coral-text">PRICE CORRECTION</span><strong>Real-time price under review</strong><small>Illustrative notice · posted 38m ago</small></div><div><span class="notice-type gold-text">MARKET NOTICE</span><strong>Transmission constraint update</strong><small>Illustrative notice · posted 2h ago</small></div><div><span class="notice-type teal-text">OPERATIONS</span><strong>Normal operating conditions</strong><small>Illustrative notice · posted 4h ago</small></div></div></article>
         </section>
 
         <footer class="footer"><span><i class="status-dot"></i> Prototype interface</span><span>Live data integrations will be added in a future phase.</span></footer>
