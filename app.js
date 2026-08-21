@@ -60,5 +60,27 @@ const initialView = window.location.hash.replace('#view-', '');
 selectView(viewCopy[initialView] ? initialView : 'overview', false);
 
 document.querySelector('#refresh-button').addEventListener('click', () => {
+  syncApiHealth();
   showToast('View refreshed. Live data connections are not configured yet.');
 });
+
+async function syncApiHealth() {
+  try {
+    const response = await fetch('/api/health', { cache: 'no-store' });
+    if (!response.ok) return;
+    const health = await response.json();
+    const liveLabel = document.querySelector('.live-label');
+    const systemMessage = document.querySelector('.system-status p');
+    const syncTime = document.querySelector('.status-meta span:last-child');
+    const demoNote = document.querySelector('.demo-note');
+    if (!health.configured) return;
+    liveLabel.textContent = 'READY';
+    systemMessage.textContent = health.tokenMode === 'automatic' ? 'ERCOT API credentials configured.' : 'ERCOT API token configured.';
+    syncTime.textContent = health.tokenExpiresAt ? `Token ${new Date(health.tokenExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Ready';
+    demoNote.innerHTML = '<span class="status-dot"></span> API ready · demo values';
+  } catch {
+    // The UI remains usable when opened as a static file or before the backend starts.
+  }
+}
+
+syncApiHealth();
