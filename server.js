@@ -116,7 +116,10 @@ async function fetchErcot(url, cacheSeconds = 30) {
     },
   });
   const payload = await readResponse(response);
-  if (!response.ok) throw new Error(`ERCOT request failed (${response.status}).`);
+  if (!response.ok) {
+    const detail = payload?.error_description || payload?.error || payload?.raw;
+    throw new Error(`ERCOT request failed (${response.status})${detail ? `: ${String(detail).slice(0, 180)}` : '.'}`);
+  }
   cache.set(cacheKey, { value: payload, expiresAt: Date.now() + cacheSeconds * 1000 });
   return payload;
 }
@@ -174,7 +177,16 @@ function serveStatic(req, res, pathname) {
 async function handleApi(req, res, requestUrl) {
   if (requestUrl.pathname === '/api/health') {
     const configured = Boolean(process.env.ERCOT_SUBSCRIPTION_KEY && (tokenManager.token || (process.env.ERCOT_USERNAME && process.env.ERCOT_PASSWORD)));
-    return json(res, 200, { ok: true, configured, tokenMode: tokenManager.mode(), tokenExpiresAt: tokenManager.expiresAt || null, cacheEntries: cache.size });
+    let authentication = null;
+    if (requestUrl.searchParams.get('probe') === '1') {
+      try {
+        await tokenManager.getToken();
+        authentication = { ok: true, mode: tokenManager.mode() };
+      } catch (error) {
+        authentication = { ok: false, error: error.message };
+      }
+    }
+    return json(res, 200, { ok: true, configured, tokenMode: tokenManager.mode(), tokenExpiresAt: tokenManager.expiresAt || null, cacheEntries: cache.size, authentication });
   }
   try {
     if (requestUrl.pathname === '/api/ercot/products') return json(res, 200, await fetchErcot(ERCOT_API_ROOT, 60));
