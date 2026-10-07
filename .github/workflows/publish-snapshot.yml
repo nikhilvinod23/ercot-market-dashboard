@@ -18,6 +18,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ercot-market-monitoring
+      - uses: actions/checkout@v4
+        with:
+          ref: market-data
+          path: state
+      - name: Use the most recent saved edition
+        run: cp -R state/public/data/. public/data/
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
