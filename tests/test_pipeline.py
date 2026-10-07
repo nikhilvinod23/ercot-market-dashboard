@@ -52,5 +52,11 @@ class ArchiveTests(unittest.TestCase):
         self.archive.add('load','load','SYSTEM',parse('2026-10-06T18:00:00Z'),60,'actual',70000,'test')
         s=build_snapshot(self.archive.db,[],self.now)
         self.assertEqual(s['events'],[]);self.assertIsNone(s['hours'][0]['net_load_error'])
+    def test_actual_correction_can_return_to_original_value(self):
+        a=self.archive;t=parse('2026-10-06T18:00:00Z')
+        for v,posted in [(63000,'2026-10-06T18:00:00Z'),(64000,'2026-10-06T19:00:00Z'),(63000,'2026-10-06T20:00:00Z')]:
+            a.add('load','load','SYSTEM',t,60,'actual',v,'test',published=posted)
+        self.assertEqual(a.db.execute('SELECT COUNT(*) FROM observations').fetchone()[0],3)
+        h=build_snapshot(a.db,[],self.now)['hours'][0];self.assertEqual(h['load'],63000)
 
 if __name__=='__main__':unittest.main()

@@ -6,6 +6,8 @@ Official ERCOT Public API reports and public dashboard feeds, plus NOAA/NWS weat
 
 The project deliberately separates collection from publication. `PUBLISH_CADENCE` is a GitHub repository variable accepting `daily` (default), `weekly`, `hourly`, or `manual`. The **Collect and publish market monitor** workflow can also be run manually with **publish** enabled. Daily publication is once per UTC calendar day; weekly publication is at least seven days after the last successful edition. Actions schedules can be delayed; this is a monitoring/research pipeline, not a real-time trading feed.
 
+Recurring collection is gated by `ERCOT_AUTOMATION_ENABLED=true`, set after the repository's encrypted ERCOT secrets are configured. The separate **Publish saved market snapshot** workflow deploys the bootstrap edition without collecting new data or transferring credentials.
+
 ## Storage and access
 
 * `ercot-market-monitoring`: source code and a bootstrap public edition.

@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS observations (
  published_at TEXT NOT NULL, collected_at TEXT NOT NULL, source TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS observations_lookup ON observations(metric, location, target_end, issued_at);
+CREATE INDEX IF NOT EXISTS observations_actual_revision ON observations(dataset,metric,location,target_end,interval_minutes,source,collected_at,published_at);
 CREATE TABLE IF NOT EXISTS collections (id TEXT PRIMARY KEY, collected_at TEXT NOT NULL, source TEXT NOT NULL, status TEXT NOT NULL, records INTEGER NOT NULL);
 CREATE VIEW IF NOT EXISTS prices AS SELECT * FROM observations WHERE dataset='prices';
 CREATE VIEW IF NOT EXISTS load AS SELECT * FROM observations WHERE dataset='load';
@@ -141,6 +142,11 @@ class Archive:
         if value is None: return
         fields = [dataset, metric, location, iso(end), minutes, kind, value, unit, issued, published, source]
         identity = fields if kind=='forecast' else [*fields[:9], source]
+        if kind=='actual':
+            previous=self.db.execute('SELECT value FROM observations WHERE dataset=? AND metric=? AND location=? AND target_end=? AND interval_minutes=? AND source=? AND kind=\'actual\' ORDER BY collected_at DESC,published_at DESC,rowid DESC LIMIT 1',
+                (dataset,metric,location,iso(end),minutes,source)).fetchone()
+            if previous and previous[0]==value: return
+            if previous: identity=[*fields,self.now]
         key = hashlib.sha256(json.dumps(identity).encode()).hexdigest()
         row = [key, *fields[:9], published, self.now, source]
         # A correction is a new record; repeated collection does not overwrite first-seen time.

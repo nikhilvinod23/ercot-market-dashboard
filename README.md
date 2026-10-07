@@ -41,6 +41,8 @@ The following **GitHub Actions secrets** are used only by the collector:
 
 Tokens are acquired automatically each run. They are never saved in public files. A local `.env` can contain the same names; `.env` files are ignored by Git.
 
+After configuring these secrets, set the repository variable `ERCOT_AUTOMATION_ENABLED` to `true` to enable the recurring schedule. This gate keeps scheduled authenticated collection paused until credential setup is approved. **Publish saved market snapshot** can publish the verified bootstrap edition without transferring any credentials.
+
 `DATABASE_URL` is optional. It mirrors records to PostgreSQL you control; no database account is required for the initial dashboard. Local PostgreSQL is free. Do not place credentials in repository variables, browser configuration, or public data.
 
 ## Run locally
