@@ -1,37 +1,82 @@
-# ERCOT Market Pulse
+# ERCOT Market Monitor
 
-An isolated, dependency-free dashboard interface prototype for tracking the ERCOT market.
+Public ERCOT market research dashboard built with **Next.js / React / TypeScript** and a **Python data pipeline**.
 
-## Current scope
+**Public dashboard:** https://nikhilvinod23.github.io/ercot-market-dashboard/
 
-- Responsive dashboard shell with market-operations visual language
-- Six navigable views: Overview, Prices, Demand & Load, Supply, Reliability, and Congestion & Events
-- Summary cards for demand, real-time pricing, renewable share, and available capacity
-- Illustrative nodal/hub price board and settlement point detail table
-- Illustrative load-vs-forecast, seven-day demand outlook, and weather-zone comparison
-- Illustrative generation mix, renewable forecast variance, and storage activity
-- Illustrative adequacy, reserve coverage, binding constraints, market notices, and event feed
-- Lightweight interactions for view navigation, chart range controls, filters, refresh, and informational toasts
+## Views
 
-## Important note
+- Market overview: current demand, hub prices, wind, solar, aligned net load, generation mix, and event journal.
+- Prices and basis: five hubs, matched DAM/RT settlement prices, spreads, West-Houston basis, and upcoming DAM curve.
+- Forecast monitor: actual versus prior-day load/wind/solar expectations, net load surprises, and seven-day demand outlook.
+- Weather: seven Texas locations, NWS observations, hourly temperature/rain forecasts, and quantitative cloud forecasts.
+- Storage: charging, discharging, net fleet output, solar, and price context.
+- Reports: daily/weekly summaries, coverage counts, dated editions, JSON/CSV/Markdown downloads.
+- Data and methods: per-source collection status, timestamps, provenance, and calculation definitions.
 
-This prototype does not connect to ERCOT or any other data source. All values, prices, forecasts, constraints, notices, and alerts are illustrative placeholders intended to establish the interface and information hierarchy. The next implementation phase will require an ERCOT Public API account, subscription key, server-side ingestion, and data normalization.
+## Repository branches
+
+- `archive/pre-market-monitoring`: original interface and Node API prototype, preserved unchanged.
+- `main`: historical original default branch, unchanged by this build.
+- `ercot-market-monitoring`: new source and the default branch for scheduled workflows.
+- `market-data`: public normalized observation ledger and raw public source responses. The working SQLite database is rebuilt from daily JSONL files; database binaries do not accumulate in Git.
+
+## Automatic publication
+
+Collection runs hourly at minute 17, on a best-effort GitHub Actions schedule. Publication defaults to once per UTC day. Change the repository variable **PUBLISH_CADENCE** to `weekly`, `hourly`, or `manual` if desired. Open **Actions -> Collect and publish market monitor -> Run workflow** and leave **publish** enabled for an immediate edition.
+
+Source collection continues even when public publication is weekly or manual, preserving forecasts needed for future models. The reload button only reloads the saved public edition.
+
+## Free resources
+
+Only free official ERCOT and NOAA/NWS sources are used. GitHub Pages and the public-repository Actions workflow require no paid hosting. There are no paid data, AI, chart, font, database, or analytics services. Platform capacity limits still apply; monitor repository size as the archive grows. No paid service is provisioned.
+
+## Credentials
+
+The following **GitHub Actions secrets** are used only by the collector:
+
+- `ERCOT_SUBSCRIPTION_KEY`
+- `ERCOT_USERNAME`
+- `ERCOT_PASSWORD`
+
+Tokens are acquired automatically each run. They are never saved in public files. A local `.env` can contain the same names; `.env` files are ignored by Git.
+
+`DATABASE_URL` is optional. It mirrors records to PostgreSQL you control; no database account is required for the initial dashboard. Local PostgreSQL is free. Do not place credentials in repository variables, browser configuration, or public data.
 
 ## Run locally
 
-The project now includes a dependency-free Node backend. Node 18+ is required because the backend uses the built-in `fetch` API.
+```sh
+npm ci
+python -m pip install -r requirements.txt
+python -m pipeline.collect --env /path/to/.env
+npm run dev
+```
 
-1. Copy `.env.example` to `.env`.
-2. Add your ERCOT subscription key.
-3. Add `ERCOT_USERNAME` and `ERCOT_PASSWORD` to enable automatic hourly ID-token renewal. Do not commit `.env`.
-4. Start the app with `node server.js`.
-5. Open `http://127.0.0.1:8000/`.
+Open http://localhost:3000. For a production GitHub Pages export:
 
-Available backend routes:
+```sh
+NEXT_PUBLIC_BASE_PATH=/ercot-market-dashboard npm run build
+```
 
-- `GET /api/health` — configuration and token status without exposing secrets
-- `GET /api/ercot/products` — authenticated public-report catalog
-- `GET /api/ercot/product?emilId=np6-787-cd` — report metadata and artifact links
-- `GET /api/ercot/report?emilId=np6-787-cd` — fetches the first artifact for a report
+The output is `out/`. All public fetches and assets respect the repository subpath.
 
-The browser dashboard still displays illustrative values. The backend is ready for report-specific normalization and UI wiring once credentials are configured.
+To restore existing history, check out `market-data` into a separate `state/` folder and run `python -m pipeline.state restore`. To migrate existing normalized observations to PostgreSQL, configure `DATABASE_URL` and run `python -m pipeline.migrate_postgres`.
+
+## Validate
+
+```sh
+python -m unittest discover -s tests -v
+npm run typecheck
+npm run build
+npm audit
+```
+
+Tests cover physical DST intervals, missing-value handling, RT/DAM interval matching, incomplete-hour treatment, forecast vintages, and failed-publication retention.
+
+## Interpretation
+
+Prices are settlement point prices, not SCED LMPs. RT reports are at native 15-minute resolution; DAM is hourly. Completed-hour event flags use four RT intervals. Forecast baselines are the latest published forecasts before the delivery day starts, not the DAM bid cutoff. Historical posted forecasts are distinguished from the time this project first collected them. Source-designated day-ahead series with unavailable issue timestamps are explicitly retained separately.
+
+Data gaps remain missing, forecasts are never substituted for actuals, and observed timestamps are shown. Current net load uses aligned observations. Storage is aggregate telemetry, not individual battery state of charge. This is a research/monitoring foundation; forecasting, backtesting, and battery optimization are later modules.
+
+See [full architecture and methodology](docs/ARCHITECTURE.md).

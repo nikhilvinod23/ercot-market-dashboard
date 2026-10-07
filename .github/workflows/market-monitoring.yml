@@ -1,0 +1,149 @@
+name: Collect and publish market monitor
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a new public edition after collecting
+        type: boolean
+        default: true
+      cadence:
+        description: Publication cadence for this run (repository variable sets the recurring default)
+        type: choice
+        options: [configured, daily, weekly, hourly, manual]
+        default: configured
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: market-monitoring
+  cancel-in-progress: false
+jobs:
+  collect:
+    if: github.event_name != 'schedule' || vars.ERCOT_AUTOMATION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ercot-market-monitoring
+      - uses: actions/checkout@v4
+        with:
+          ref: market-data
+          path: state
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Restore durable data history
+        run: |
+          mkdir -p archive public/data
+          python -m pipeline.state restore
+          if [ -d state/raw ]; then cp -R state/raw archive/raw; fi
+          if [ -d state/public/data ]; then cp -R state/public/data/. public/data/; fi
+          if [ -f state/published-at.txt ]; then cp state/published-at.txt archive/published-at.txt; fi
+      - name: Install and verify calculations
+        run: |
+          pip install -r requirements.txt
+          python -m unittest discover -s tests -v
+      - name: Collect official data and generate report
+        env:
+          ERCOT_SUBSCRIPTION_KEY: ${{ secrets.ERCOT_SUBSCRIPTION_KEY }}
+          ERCOT_USERNAME: ${{ secrets.ERCOT_USERNAME }}
+          ERCOT_PASSWORD: ${{ secrets.ERCOT_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m pipeline.collect
+      - name: Decide whether publication is due
+        id: cadence
+        env:
+          RUN_PUBLISH: ${{ inputs.publish }}
+          RUN_CADENCE: ${{ inputs.cadence }}
+          CONFIG_CADENCE: ${{ vars.PUBLISH_CADENCE }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          now=datetime.now(timezone.utc)
+          p=Path('archive/published-at.txt')
+          old=datetime.fromisoformat(p.read_text().strip()) if p.exists() else None
+          cadence=os.getenv('RUN_CADENCE')
+          if not cadence or cadence=='configured': cadence=os.getenv('CONFIG_CADENCE') or 'daily'
+          due=old is None or cadence=='hourly' or (cadence=='daily' and old.date()!=now.date()) or (cadence=='weekly' and (now-old).total_seconds()>=7*86400)
+          if os.environ['EVENT_NAME']=='workflow_dispatch': due=os.environ.get('RUN_PUBLISH','true')=='true'
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write('publish='+str(due).lower()+'\n')
+          PY
+      - name: Build and verify static dashboard
+        if: steps.cadence.outputs.publish == 'true'
+        env:
+          NEXT_PUBLIC_BASE_PATH: /ercot-market-dashboard
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('out/data/latest.json').read_text())
+          assert data['schema_version']==1 and data['archive_records']>0
+          assert Path('out/index.html').exists()
+          PY
+      - name: Preserve normalized archive and original source responses
+        run: |
+          python -m pipeline.state save
+          if [ -d archive/raw ]; then cp -R archive/raw/. state/raw/; fi
+          mkdir -p state/public/data
+          cp -R public/data/. state/public/data/
+          if [ -f archive/published-at.txt ]; then cp archive/published-at.txt state/published-at.txt; fi
+          python - <<'PY'
+          from pathlib import Path
+          from datetime import datetime,timedelta,timezone
+          cutoff=(datetime.now(timezone.utc)-timedelta(days=30)).date().isoformat()
+          for folder in Path('state/raw').glob('*'):
+              if folder.is_dir() and folder.name<cutoff:
+                  for p in folder.glob('*.json.gz'):p.unlink()
+                  if not any(folder.iterdir()):folder.rmdir()
+          # Remove report editions pruned by the report generator.
+          current={p.name for p in Path('public/data/reports').glob('*.json')}
+          for p in Path('state/public/data/reports').glob('*.json'):
+              if p.name not in current:p.unlink()
+          PY
+          cd state
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add observations collections raw public/data
+          if [ -f published-at.txt ]; then git add published-at.txt; fi
+          if ! git diff --cached --quiet; then git commit -m 'Archive official market observations and forecast vintages'; git push origin HEAD:market-data; fi
+      - name: Configure Pages
+        if: steps.cadence.outputs.publish == 'true'
+        uses: actions/configure-pages@v5
+      - name: Upload public site
+        if: steps.cadence.outputs.publish == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+      - name: Deploy public edition
+        id: deploy
+        if: steps.cadence.outputs.publish == 'true'
+        uses: actions/deploy-pages@v4
+      - name: Mark successful publication
+        if: steps.cadence.outputs.publish == 'true'
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('public/data/latest.json').read_text())
+          Path('state/published-at.txt').write_text(data['published_at'])
+          PY
+          cd state
+          git add published-at.txt
+          if ! git diff --cached --quiet; then git commit -m 'Record successful public edition'; git push origin HEAD:market-data; fi

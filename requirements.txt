@@ -1,0 +1,4 @@
+# Standard-library collector; tzdata supplies Central Time on Windows.
+tzdata>=2025.2
+# Optional PostgreSQL mirroring. Installed by the workflow, no hosted database required.
+psycopg[binary]>=3.2,<4
