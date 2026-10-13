@@ -9,6 +9,15 @@ const ERCOT_AUTH_URL = 'https://ercotb2c.b2clogin.com/ercotb2c.onmicrosoft.com/B
 const ERCOT_CLIENT_ID = 'fec253ea-0d06-4272-a5e6-b478baeecd70';
 const ERCOT_SCOPE = 'openid fec253ea-0d06-4272-a5e6-b478baeecd70 offline_access';
 const cache = new Map();
+const LIVE_CACHE_KEY = '__normalized-live-dashboard__';
+const LIVE_SOURCES = {
+  fuelMix: 'https://www.ercot.com/api/1/services/read/dashboards/fuel-mix.json',
+  prices: 'https://www.ercot.com/api/1/services/read/dashboards/system-wide-prices.json',
+  demand: 'https://www.ercot.com/api/1/services/read/dashboards/system-wide-demand.json',
+  outages: 'https://www.ercot.com/api/1/services/read/dashboards/generation-outages.json',
+  storage: 'https://www.ercot.com/api/1/services/read/dashboards/energy-storage-resources.json',
+  reserve: 'https://www.ercot.com/api/1/services/read/dashboards/daily-prc.json',
+};
 
 loadDotEnv();
 const PORT = Number(process.env.PORT || 8000);
@@ -124,6 +133,147 @@ async function fetchErcot(url, cacheSeconds = 30) {
   return payload;
 }
 
+async function fetchPublicJson(url) {
+  const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } });
+  const payload = await readResponse(response);
+  if (!response.ok) throw new Error(`Public ERCOT feed failed (${response.status}).`);
+  return payload;
+}
+
+function numberOrNull(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function latestObjectValue(object) {
+  if (!object || typeof object !== 'object') return null;
+  const keys = Object.keys(object).sort();
+  return keys.length ? object[keys[keys.length - 1]] : null;
+}
+
+function sourceMeta(payload, lastUpdated) {
+  return { ok: Boolean(payload), lastUpdated: lastUpdated || null };
+}
+
+function normalizeFuelMix(payload) {
+  const date = Object.keys(payload?.data || {}).sort().at(-1);
+  const day = date ? payload.data[date] : null;
+  const timestamp = day ? Object.keys(day).sort().at(-1) : null;
+  const reading = timestamp ? day[timestamp] : null;
+  const excluded = new Set(['Power Storage Charging', 'Power Storage Discharging']);
+  const generation = Object.entries(reading || {})
+    .filter(([label, item]) => !excluded.has(label) && numberOrNull(item?.gen) !== null)
+    .map(([label, item]) => ({ label, mw: numberOrNull(item.gen) }))
+    .filter((item) => item.mw >= 0);
+  const totalMw = generation.reduce((sum, item) => sum + item.mw, 0);
+  return {
+    timestamp,
+    totalMw,
+    generation: generation.map((item) => ({ ...item, share: totalMw ? (item.mw / totalMw) * 100 : 0 })),
+    capacity: payload?.monthlyCapacity || {},
+  };
+}
+
+function normalizePrices(payload) {
+  const series = (payload?.rtSppData || []).slice(-96).map((item) => ({
+    timestamp: item.timestamp,
+    intervalEnding: item.intervalEnding,
+    houston: numberOrNull(item.hbHouston),
+    north: numberOrNull(item.hbNorth),
+    south: numberOrNull(item.hbSouth),
+    west: numberOrNull(item.hbWest),
+    hub: numberOrNull(item.hbHubAvg),
+  }));
+  return { lastUpdated: payload?.lastUpdated || null, latest: series.at(-1) || null, series };
+}
+
+function normalizeDemand(payload) {
+  const day = payload?.currentDay;
+  const series = (day?.data || []).map((item) => ({
+    timestamp: item.timestamp,
+    hourEnding: item.hourEnding,
+    loadForecast: numberOrNull(item.currentLoadForecast),
+    dayAheadForecast: numberOrNull(item.dayAheadForecast),
+    capacity: numberOrNull(item.currentDayHsl),
+  }));
+  return { lastUpdated: payload?.lastUpdated || null, dayDate: day?.dayDate || null, latest: series.at(-1) || null, series };
+}
+
+function normalizeOutages(payload) {
+  const latest = latestObjectValue(payload?.current);
+  return {
+    lastUpdated: payload?.lastUpdated || null,
+    totalMw: numberOrNull(payload?.currentOutages),
+    latest: latest ? {
+      deliveryTime: latest.deliveryTime,
+      combined: latest.Combined || null,
+      dispatchable: latest.Dispatchable || null,
+      renewable: latest.Renewable || null,
+    } : null,
+  };
+}
+
+function normalizeStorage(payload) {
+  const series = (payload?.currentDay?.data || []).slice(-96).map((item) => ({
+    timestamp: item.timestamp,
+    charging: numberOrNull(item.totalCharging),
+    discharging: numberOrNull(item.totalDischarging),
+    netOutput: numberOrNull(item.netOutput),
+  }));
+  return { lastUpdated: payload?.lastUpdated || null, latest: series.at(-1) || null, series };
+}
+
+function normalizeReserve(payload) {
+  const series = (payload?.data || []).slice(-96).map((item) => ({
+    timestamp: item.timestamp,
+    mw: numberOrNull(item.prc),
+  }));
+  return {
+    lastUpdated: payload?.lastUpdated || null,
+    condition: payload?.current_condition || null,
+    latest: series.at(-1) || null,
+    series,
+  };
+}
+
+async function getLiveDashboard() {
+  const cached = cache.get(LIVE_CACHE_KEY);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const entries = await Promise.all(Object.entries(LIVE_SOURCES).map(async ([name, url]) => {
+    try {
+      return [name, { ok: true, payload: await fetchPublicJson(url) }];
+    } catch (error) {
+      return [name, { ok: false, error: error.message }];
+    }
+  }));
+  const feeds = Object.fromEntries(entries);
+  const fuel = feeds.fuelMix.ok ? normalizeFuelMix(feeds.fuelMix.payload) : null;
+  const prices = feeds.prices.ok ? normalizePrices(feeds.prices.payload) : null;
+  const demand = feeds.demand.ok ? normalizeDemand(feeds.demand.payload) : null;
+  const outages = feeds.outages.ok ? normalizeOutages(feeds.outages.payload) : null;
+  const storage = feeds.storage.ok ? normalizeStorage(feeds.storage.payload) : null;
+  const reserve = feeds.reserve.ok ? normalizeReserve(feeds.reserve.payload) : null;
+  const result = {
+    fetchedAt: new Date().toISOString(),
+    sources: {
+      fuelMix: feeds.fuelMix.ok ? sourceMeta(feeds.fuelMix.payload, feeds.fuelMix.payload.lastUpdated) : { ok: false, error: feeds.fuelMix.error },
+      prices: feeds.prices.ok ? sourceMeta(feeds.prices.payload, feeds.prices.payload.lastUpdated) : { ok: false, error: feeds.prices.error },
+      demand: feeds.demand.ok ? sourceMeta(feeds.demand.payload, feeds.demand.payload.lastUpdated) : { ok: false, error: feeds.demand.error },
+      outages: feeds.outages.ok ? sourceMeta(feeds.outages.payload, feeds.outages.payload.lastUpdated) : { ok: false, error: feeds.outages.error },
+      storage: feeds.storage.ok ? sourceMeta(feeds.storage.payload, feeds.storage.payload.lastUpdated) : { ok: false, error: feeds.storage.error },
+      reserve: feeds.reserve.ok ? sourceMeta(feeds.reserve.payload, feeds.reserve.payload.lastUpdated) : { ok: false, error: feeds.reserve.error },
+    },
+    fuel,
+    prices,
+    demand,
+    outages,
+    storage,
+    reserve,
+  };
+  cache.set(LIVE_CACHE_KEY, { value: result, expiresAt: Date.now() + 30000 });
+  return result;
+}
+
 function validProductId(value) {
   return /^[a-z0-9-]+$/i.test(value || '');
 }
@@ -189,6 +339,7 @@ async function handleApi(req, res, requestUrl) {
     return json(res, 200, { ok: true, configured, tokenMode: tokenManager.mode(), tokenExpiresAt: tokenManager.expiresAt || null, cacheEntries: cache.size, authentication });
   }
   try {
+    if (requestUrl.pathname === '/api/live') return json(res, 200, await getLiveDashboard());
     if (requestUrl.pathname === '/api/ercot/products') return json(res, 200, await fetchErcot(ERCOT_API_ROOT, 60));
     if (requestUrl.pathname === '/api/ercot/product') return json(res, 200, await getProduct(requestUrl.searchParams.get('emilId')));
     if (requestUrl.pathname === '/api/ercot/report') return json(res, 200, await getArtifact(requestUrl.searchParams.get('emilId'), requestUrl.searchParams.get('artifact'), requestUrl.searchParams));
