@@ -634,7 +634,7 @@
     loading = true;
     const retained = Array.from(
       document.querySelectorAll(
-        "#city,#weather-mode,#resource-filter,#archive-hub,#nws-city,#node-pick,#heat-rate,#gas-vom,#gas-hub,.map-controls input",
+        "#city,#weather-mode,#resource-filter,#archive-hub,#nws-city,#node-pick,#heat-rate,#gas-vom,#gas-hub,#kalshi-day,#kalshi-strike,#kalshi-side,#kalshi-count,#kalshi-probability,#kalshi-exit,.map-controls input",
       ),
     ).map((el) => ({
       selector: el.id ? "#" + el.id : "#" + el.closest("[id]").id + " input",
@@ -730,6 +730,7 @@
         for (const saved of retained) {
           const el = document.querySelector(saved.selector);
           if (el) {
+            if(saved.kind==='SELECT' && !Array.from(el.options).some(option=>option.value===saved.value)) continue;
             el.value = saved.value;
             el.dispatchEvent(
               new Event(saved.kind === "SELECT" ? "change" : "input"),
