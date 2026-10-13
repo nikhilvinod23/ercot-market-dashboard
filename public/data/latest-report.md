@@ -1,6 +1,6 @@
 # ERCOT Market Review
 
-Published 2026-10-13T19:49:03Z. All times in charts are Central Time.
+Published 2026-10-13T19:56:53Z. All times in charts are Central Time.
 
 ## Daily
 
