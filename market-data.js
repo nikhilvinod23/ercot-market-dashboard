@@ -144,6 +144,8 @@ module.exports = function createMarketData({
           /coords="(\d+),(\d+),\d+"\s+title="([^:]+):\s*\$(-?[\d.]+)"/g,
         ),
       ].map((m) => ({ x: +m[1], y: +m[2], name: m[3], price: +m[4] }));
+      if(!points.length || !ts)throw new Error('Nodal map schema unavailable');
+      feeds.nodes={ok:true,lastUpdated:ts,fetchedAt:new Date().toISOString()};
       if (points.length && last(nodes)?.timestamp !== ts) {
         nodes.push({
           timestamp: ts,
@@ -482,9 +484,13 @@ module.exports = function createMarketData({
       save("feeds", feeds);
       save("history", history);
       await updateNodes();
-      updateReports().catch(console.error);
-      updateAssets().catch(console.error);
-      updateWeather().catch(console.error);
+      save('feeds',feeds);
+      enrichment = Promise.all([
+        updateReports(),
+        updateAssets(),
+        updateWeather(),
+      ]);
+      enrichment.catch(console.error);
     })().finally(() => {
       refreshing = null;
     });
@@ -567,7 +573,13 @@ module.exports = function createMarketData({
   }
   const timer = setInterval(() => refresh().catch(console.error), 60000);
   timer.unref();
-  return { refresh, current, n, rows };
+  let enrichment = Promise.resolve();
+  async function collectAll() {
+    await refresh();
+    await enrichment;
+    return current();
+  }
+  return { refresh, collectAll, current, n, rows };
 };
 
 module.exports.numberOrNull = n;

@@ -22,7 +22,7 @@ window.Maps = (() => {
     "Corpus Christi": [700, -220],
   };
   function color(v, lo, hi) {
-    if (!valid(v)) return "#e8ecf0";
+    if (!valid(v)) return "#293949";
     const t = Math.max(0, Math.min(1, (v - lo) / (hi - lo || 1)));
     const a = t < 0.5 ? [44, 104, 159] : [239, 222, 185],
       b = t < 0.5 ? [239, 222, 185] : [177, 58, 55],
@@ -85,7 +85,7 @@ window.Maps = (() => {
       let content = geometry.shapes
         .map((s) => {
           const v = f.values?.[zones[s.name]];
-          return `<path class="map-shape" d="${e(s.path)}" fill="${markers || s.name === "Texas" ? "#f1f3f5" : color(v, lo, hi)}" stroke="#fff" stroke-width="2" data-tip="${e("<strong>" + s.name + "</strong><div>" + n(v, 1) + " " + unit + "</div><div>" + f.timestamp + "</div>")}"/>`;
+          return `<path class="map-shape" d="${e(s.path)}" fill="${markers || s.name === "Texas" ? "#253440" : color(v, lo, hi)}" stroke="#13202a" stroke-width="2" data-tip="${e("<strong>" + s.name + "</strong><div>" + n(v, 1) + " " + unit + "</div><div>" + f.timestamp + "</div>")}"/>`;
         })
         .join("");
       if (markers)
@@ -93,14 +93,14 @@ window.Maps = (() => {
           .map((p) => {
             const xy = positions[p.name];
             if (!xy) return "";
-            return `<circle cx="${xy[0]}" cy="${xy[1]}" r="14" fill="${color(p.value, lo, hi)}" stroke="#fff" stroke-width="3" data-tip="${e("<strong>" + p.name + "</strong><div>" + n(p.value, 2) + " " + unit + "</div><div>" + f.timestamp + "</div>")}"/><text x="${xy[0] + 18}" y="${xy[1] + 5}" font-size="20">${e(p.name)}</text>`;
+            return `<circle cx="${xy[0]}" cy="${xy[1]}" r="14" fill="${color(p.value, lo, hi)}" stroke="#13202a" stroke-width="3" data-tip="${e("<strong>" + p.name + "</strong><div>" + n(p.value, 2) + " " + unit + "</div><div>" + f.timestamp + "</div>")}"/><text x="${xy[0] + 18}" y="${xy[1] + 5}" font-size="20">${e(p.name)}</text>`;
           })
           .join("");
       el.innerHTML = `<svg class="map-svg" viewBox="0 -1000 1000 1000" aria-label="Regional map">${content}</svg><div class="map-scale">${n(lo, 1)} ${unit}<span></span>${n(hi, 1)} ${unit}</div>`;
       bind(el, details);
     });
   }
-  function nodal(id, frames) {
+  function nodal(id, frames, backdrop = "/api/contour") {
     const all = (frames || []).flatMap((f) => f.points.map((p) => p.price)),
       fixedLow = Math.min(...all),
       fixedHigh = Math.max(...all);
@@ -108,7 +108,7 @@ window.Maps = (() => {
       const vals = f.points.map((p) => p.price),
         lo = fixedLow,
         hi = fixedHigh;
-      el.innerHTML = `<svg class="map-svg" viewBox="0 0 600 600" aria-label="ERCOT nodal LMP"><image href="/api/contour" width="600" height="600" opacity=".15" style="filter:grayscale(1)"/>${f.points.map((p) => `<circle class="map-node" cx="${p.x}" cy="${p.y}" r="4" fill="${color(p.price, lo, hi)}" data-tip="${e("<strong>" + p.name + "</strong><div>$" + n(p.price, 2) + "/MWh</div><div>" + f.timestamp + " CT</div>")}"/>`).join("")}</svg><div class="map-scale">$${n(lo, 2)}<span></span>$${n(hi, 2)}</div>`;
+      el.innerHTML = `<svg class="map-svg" viewBox="0 0 600 600" aria-label="ERCOT nodal LMP"><image href="${e(backdrop)}" width="600" height="600" opacity=".15" style="filter:grayscale(1)"/>${f.points.map((p) => `<circle class="map-node" cx="${p.x}" cy="${p.y}" r="4" fill="${color(p.price, lo, hi)}" data-tip="${e("<strong>" + p.name + "</strong><div>$" + n(p.price, 2) + "/MWh</div><div>" + f.timestamp + " CT</div>")}"/>`).join("")}</svg><div class="map-scale">$${n(lo, 2)}<span></span>$${n(hi, 2)}</div>`;
       bind(el, details);
     });
   }
@@ -128,7 +128,7 @@ window.Maps = (() => {
     for (let x = 6; x <= 8; x++)
       for (let y = 12; y <= 14; y++)
         tiles += `<image href="https://tile.openstreetmap.org/${z}/${x}/${y}.png" x="${x * size - ox}" y="${y * size - oy}" width="256" height="256"/>`;
-    el.innerHTML = `<div class="map-shell"><svg class="map-svg" viewBox="95 110 455 405" aria-label="Texas generation locations">${tiles}${plants.map((p) => `<circle cx="${px(p.lon) - ox}" cy="${py(p.lat) - oy}" r="${Math.max(3, Math.min(11, Math.sqrt(p.capacity || 0) / 4))}" fill="${p.battery > 0 ? "#8b66a8" : p.wind > 0 ? "#25836d" : p.solar > 0 ? "#c07938" : "#638191"}" stroke="#fff" data-tip="${e("<strong>" + p.name + "</strong><div>" + p.fuel + " · " + n(p.capacity) + " MW</div><div>Wind " + n(p.wind) + " · Solar " + n(p.solar) + " · Battery " + n(p.battery) + " MW</div><div>" + n(p.lat, 4) + ", " + n(p.lon, 4) + "</div><div>Inventory " + p.period + "</div>")}"/>`).join("")}</svg></div><div class="selected-detail">Hover a resource for capacity and location.</div><div class="map-caption">© OpenStreetMap contributors · EIA plant inventory · Texas scope; ERCOT membership unverified</div>`;
+    el.innerHTML = `<div class="map-shell"><svg class="map-svg" viewBox="95 110 455 405" aria-label="Texas generation locations">${tiles}${plants.map((p) => `<circle cx="${px(p.lon) - ox}" cy="${py(p.lat) - oy}" r="${Math.max(3, Math.min(11, Math.sqrt(p.capacity || 0) / 4))}" fill="${p.battery > 0 ? "#8b66a8" : p.wind > 0 ? "#25836d" : p.solar > 0 ? "#c07938" : "#638191"}" stroke="#13202a" data-tip="${e("<strong>" + p.name + "</strong><div>" + p.fuel + " · " + n(p.capacity) + " MW</div><div>Wind " + n(p.wind) + " · Solar " + n(p.solar) + " · Battery " + n(p.battery) + " MW</div><div>" + n(p.lat, 4) + ", " + n(p.lon, 4) + "</div><div>Inventory " + p.period + "</div>")}"/>`).join("")}</svg></div><div class="selected-detail">Hover a resource for capacity and location.</div><div class="map-caption">© OpenStreetMap contributors · EIA plant inventory · Texas scope; ERCOT membership unverified</div>`;
     bind(el, el.querySelector(".selected-detail"));
   }
   return { regional, nodal, plants };

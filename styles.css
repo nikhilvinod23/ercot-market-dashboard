@@ -1,15 +1,88 @@
 :root {
-  --ink: #20262e;
-  --muted: #727b88;
-  --line: #e2e5e9;
-  --blue: #245db4;
-  --green: #237463;
-  --red: #b54b46;
-  --bg: #f6f7f9;
+  color-scheme: dark;
+  --ink: #dce3ea;
+  --muted: #94a3b5;
+  --line: #263442;
+  --blue: #88b6e4;
+  --green: #79c9b5;
+  --red: #d49aa9;
+  --bg: #10171f;
   --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 * {
   box-sizing: border-box;
+}
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+nav {
+  margin-top: 24px;
+  overflow-y: auto;
+}
+.brand > svg {
+  vertical-align: middle;
+  margin-right: 4px;
+}
+.sidebar-footer a {
+  color: var(--muted);
+  display: block;
+  margin-top: 10px;
+}
+.download {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--blue);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.chart-data {
+  margin-top: 12px;
+  font-size: 12px;
+}
+.chart-data summary,
+details summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+details p {
+  color: var(--muted);
+  max-width: 85ch;
+}
+input {
+  color: var(--ink);
+  background: #121c26;
+  border: 1px solid var(--line);
+  padding: 7px 9px;
+  border-radius: 3px;
+}
+.map-svg image {
+  filter: brightness(0.65) saturate(0.65);
+}
+.selected-detail {
+  background: #17232e !important;
+}
+.map-svg text {
+  fill: #dce3ea;
+}
+.map-svg circle:hover {
+  stroke: #dce3ea;
+}
+@media (max-height: 760px) {
+  aside {
+    padding-top: 20px;
+    padding-bottom: 15px;
+  }
+  nav a {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
 }
 body {
   margin: 0;
@@ -29,9 +102,9 @@ select {
 }
 button,
 select {
-  border: 1px solid #d6dae0;
+  border: 1px solid #334454;
   border-radius: 4px;
-  background: #fff;
+  background: #17212b;
   padding: 7px 11px;
   color: var(--ink);
 }
@@ -39,7 +112,7 @@ button {
   cursor: pointer;
 }
 button:hover {
-  background: #f2f4f7;
+  background: #202f3b;
 }
 button:active {
   transform: translateY(1px);
@@ -59,7 +132,7 @@ aside {
   width: 215px;
   position: fixed;
   inset: 0 auto 0 0;
-  background: #fff;
+  background: #17212b;
   border-right: 1px solid var(--line);
   padding: 29px 18px;
   display: flex;
@@ -86,16 +159,18 @@ nav {
   margin-top: 36px;
 }
 nav a {
-  display: block;
-  padding: 9px 12px;
-  color: #616c78;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  color: #b8c3cf;
   text-decoration: none;
   border-radius: 4px;
   font-size: 13px;
 }
 nav a.active {
-  background: #edf2fa;
-  color: #245db4;
+  background: #22303d;
+  color: #88b6e4;
   font-weight: 600;
 }
 .sidebar-footer {
@@ -151,7 +226,7 @@ header span {
   gap: 14px;
 }
 .metric {
-  background: #fff;
+  background: #17212b;
   border: 1px solid var(--line);
   padding: 18px 19px;
   border-radius: 5px;
@@ -194,7 +269,7 @@ header span {
 }
 .panel {
   min-width: 0;
-  background: #fff;
+  background: #17212b;
   border: 1px solid var(--line);
   border-radius: 5px;
   padding: 21px;
@@ -233,11 +308,11 @@ header span {
   display: block;
 }
 .chart-grid {
-  stroke: #e9ecf0;
+  stroke: #263442;
   stroke-width: 1;
 }
 .chart-axis {
-  fill: #7e8793;
+  fill: #96a6b8;
   font: 17px var(--mono);
 }
 .chart-line {
@@ -280,7 +355,7 @@ header span {
   padding: 40px 20px;
   text-align: center;
   color: #828b96;
-  background: #fafbfc;
+  background: #131e28;
   font-size: 12px;
   min-height: 150px;
   display: grid;
@@ -299,7 +374,7 @@ th {
   text-align: left;
   font-weight: 500;
   color: #77818d;
-  background: #f9fafb;
+  background: #192530;
   position: sticky;
   top: 0;
   z-index: 1;
@@ -308,7 +383,7 @@ th {
 td,
 th {
   padding: 10px 9px;
-  border-bottom: 1px solid #ecedf0;
+  border-bottom: 1px solid #263442;
 }
 td.num,
 th.num {
@@ -322,8 +397,8 @@ td small {
 }
 .tag {
   font-size: 10px;
-  background: #f1f3f6;
-  color: #657080;
+  background: #243542;
+  color: #9bacc0;
   padding: 3px 7px;
   border-radius: 3px;
 }
@@ -337,7 +412,7 @@ td small {
   font-size: 12px;
 }
 .bar-track {
-  background: #edf0f4;
+  background: #263b48;
   height: 7px;
   margin-top: 5px;
 }
@@ -350,8 +425,8 @@ td small {
   z-index: 100;
   pointer-events: none;
   display: none;
-  background: #fff;
-  border: 1px solid #d7dce3;
+  background: #17212b;
+  border: 1px solid #334454;
   border-radius: 4px;
   box-shadow: 0 3px 12px #0001;
   padding: 10px 13px;
@@ -376,8 +451,8 @@ td small {
 .map-shell {
   position: relative;
   min-height: 395px;
-  background: #fafbfd;
-  border: 1px solid #ecedf0;
+  background: #121c26;
+  border: 1px solid #263442;
 }
 .map-svg {
   width: 100%;
@@ -451,7 +526,7 @@ input[type="range"] {
 }
 .selected-detail {
   padding: 12px 15px;
-  background: #f5f7fa;
+  background: #17232e;
   border-top: 1px solid var(--line);
   font-size: 12px;
 }
@@ -492,10 +567,10 @@ input[type="range"] {
 .form-grid input,
 .form-grid select {
   width: 100%;
-  border: 1px solid #d6dae0;
+  border: 1px solid #334454;
   padding: 7px;
   border-radius: 3px;
-  background: #fff;
+  background: #17212b;
   color: var(--ink);
 }
 .form-action {
@@ -535,7 +610,7 @@ input[type="range"] {
 #notice {
   padding: 12px 15px;
   border: 1px solid #dfc6ad;
-  background: #fff8ed;
+  background: #302923;
   font-size: 12px;
   margin-bottom: 18px;
 }
@@ -575,8 +650,8 @@ footer button {
   color: var(--muted);
 }
 nav a[aria-current="page"] {
-  background: #edf2fa;
-  color: #245db4;
+  background: #22303d;
+  color: #88b6e4;
   font-weight: 600;
 }
 .metric > small {
@@ -584,7 +659,7 @@ nav a[aria-current="page"] {
   overflow-wrap: anywhere;
 }
 .map-svg text {
-  fill: #20262e;
+  fill: #dce3ea;
 }
 .empty {
   padding: 36px 12px;

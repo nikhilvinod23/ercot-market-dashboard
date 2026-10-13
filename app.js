@@ -1,5 +1,9 @@
 (() => {
   const { escape: e, number: n, valid, chart } = UI;
+  const isLocal =
+    document.querySelector('meta[name="market-mode"]')?.content !==
+      "published" &&
+    ["127.0.0.1", "localhost", "::1"].includes(location.hostname);
   let data = null,
     view = "overview",
     day = "";
@@ -7,10 +11,13 @@
     overview: "Overview",
     prices: "Prices & geography",
     demand: "Demand & forecasts",
+    forecasts: "Forecast monitor",
     weather: "Weather",
     resources: "Generation & storage",
     ancillary: "Ancillary services",
+    fuels: "Fuel & resource prices",
     analysis: "Trading & battery",
+    reports: "Reports & archive",
     health: "Data health",
   };
   const content = document.querySelector("#content");
@@ -33,10 +40,10 @@
   function priceRows() {
     const p = series("prices");
     return p.map((r) => {
-      const he =
-        +r.timestamp.slice(11, 13) + (+r.timestamp.slice(14, 16) > 0 ? 1 : 0);
+      const end = Date.parse(r.timestamp.replace(" ", "T"));
+      const hourEnd = (Math.floor((end - 1) / 3600000) + 1) * 3600000;
       const dam = data.series.dam.find(
-        (d) => d.timestamp?.slice(0, 10) === day && +d.hourEnding === he,
+        (d) => Date.parse(d.timestamp?.replace(" ", "T")) === hourEnd,
       );
       return {
         ...r,
@@ -53,10 +60,12 @@
     document.querySelector("#nav").innerHTML = Object.entries(views)
       .map(
         ([k, v]) =>
-          `<a href="#${k}" ${view === k ? 'aria-current="page"' : ""}>${v}</a>`,
+          `<a href="#${k}" ${view === k ? 'aria-current="page"' : ""}>${icon(k)}<span>${v}</span></a>`,
       )
       .join("");
     const c = data.current;
+    const context = { panel, plot, table, day };
+    if (Extensions.render(view, data, context)) return;
     if (view === "overview") {
       const prev = report("yesterdayPrices").filter(
         (r) => r.settlementPoint === "HB_HUBAVG",
@@ -150,7 +159,7 @@
         true,
       )}</div>`;
       chart("prices", series("prices"), priceLines, "$/MWh");
-      Maps.nodal("nodes", data.nodes);
+      Maps.nodal("nodes", data.nodes, data.contourUrl || "/api/contour");
       Maps.regional(
         "hubs",
         data.geometry,
@@ -494,6 +503,85 @@
           ),
         );
     }
+    Extensions.enhance(view, data, context);
+  }
+  function mergeArchive() {
+    const hubs = {
+      HB_HOUSTON: "hbHouston",
+      HB_NORTH: "hbNorth",
+      HB_WEST: "hbWest",
+      HB_SOUTH: "hbSouth",
+      HB_BUSAVG: "hbBusAvg",
+    };
+    const prices = new Map(),
+      dam = new Map();
+    for (const r of data.monitor?.native_prices || []) {
+      const timestamp = Extensions.stamp(r.time),
+        map = r.market === "RT" ? prices : dam,
+        key = hubs[r.hub];
+      if (!key) continue;
+      const row = map.get(timestamp) || { timestamp };
+      row[key] = r.value;
+      row.hourEnding = +timestamp.slice(11, 13);
+      map.set(timestamp, row);
+    }
+    for (const r of data.series.prices) {
+      prices.set(r.timestamp, { ...prices.get(r.timestamp), ...r });
+    }
+    for (const r of data.series.dam) {
+      dam.set(r.timestamp, { ...dam.get(r.timestamp), ...r });
+    }
+    data.series.prices = [...prices.values()].sort(
+      (a, b) =>
+        Date.parse(a.timestamp.replace(" ", "T")) -
+        Date.parse(b.timestamp.replace(" ", "T")),
+    );
+    data.series.dam = [...dam.values()].sort((a, b) =>
+      a.timestamp.localeCompare(b.timestamp),
+    );
+    const demand = new Map(),
+      fuel = new Map(),
+      storage = new Map();
+    for (const h of data.monitor?.hours || []) {
+      const timestamp = Extensions.stamp(h.time);
+      demand.set(timestamp, {
+        timestamp,
+        actual: h.load,
+        dayAhead: h.load_forecast,
+        forecast: h.load_outlook,
+      });
+    }
+    for (const r of data.monitor?.native_generation || []) {
+      const timestamp = Extensions.stamp(r.time),
+        row = fuel.get(timestamp) || { timestamp };
+      row[r.fuel] = r.value;
+      fuel.set(timestamp, row);
+    }
+    for (const r of data.monitor?.storage || []) {
+      const timestamp = Extensions.stamp(r.time);
+      storage.set(timestamp, {
+        timestamp,
+        charge: valid(r.charging) ? -r.charging : null,
+        discharge: r.discharging,
+        net: r.net_storage,
+      });
+    }
+    for (const [key, map] of [
+      ["demand", demand],
+      ["fuel", fuel],
+      ["storage", storage],
+    ]) {
+      for (const r of data.series[key])
+        map.set(r.timestamp, { ...map.get(r.timestamp), ...r });
+      data.series[key] = [...map.values()].sort(
+        (a, b) =>
+          Date.parse(a.timestamp.replace(" ", "T")) -
+          Date.parse(b.timestamp.replace(" ", "T")),
+      );
+    }
+    data.days = [
+      ...new Set(data.series.prices.map((r) => r.timestamp.slice(0, 10))),
+    ].reverse();
   }
   function demandChart() {
     chart(
@@ -508,6 +596,10 @@
     );
   }
   function fuelChart() {
+    if (view === "overview") {
+      UI.fuelBars("fuel", data.current.fuel);
+      return;
+    }
     chart(
       "fuel",
       series("fuel"),
@@ -525,7 +617,7 @@
   async function load(refresh = false) {
     const retained = Array.from(
       document.querySelectorAll(
-        "#city,#weather-mode,#resource-filter,.map-controls input",
+        "#city,#weather-mode,#resource-filter,#archive-hub,#nws-city,#node-pick,#heat-rate,#gas-vom,#gas-hub,.map-controls input",
       ),
     ).map((el) => ({
       selector: el.id ? "#" + el.id : "#" + el.closest("[id]").id + " input",
@@ -535,9 +627,17 @@
     const button = document.querySelector("#refresh");
     button.disabled = true;
     try {
-      const res = await fetch(refresh ? "/api/refresh" : "/api/market");
+      const res = await fetch(
+        isLocal
+          ? refresh
+            ? "/api/refresh"
+            : "/api/market"
+          : "data/dashboard.json?" + Date.now(),
+      );
       if (!res.ok) throw Error("Market service unavailable");
       data = await res.json();
+      await Extensions.load(data);
+      mergeArchive();
       const days = data.days.length
         ? data.days
         : [
@@ -550,15 +650,22 @@
         .map((d) => `<option ${d === day ? "selected" : ""}>${d}</option>`)
         .join("");
       document.querySelector("#as-of").textContent =
-        "Latest price " +
+        (isLocal
+          ? "Live · latest price "
+          : "Published " +
+            Extensions.stamp(data.publishedAt) +
+            " · latest price ") +
         (data.current.prices?.timestamp || "pending") +
         " · Central Time";
       document.querySelector("#history-status").textContent =
-        "Local history from " + (data.historyStarted || "first reading");
+        n(data.monitor?.archive_records) +
+        " archived observations · hourly Python collector";
       const failed = Object.entries(data.sources).filter(([k, v]) => !v.ok);
       document.querySelector("#feed-status").textContent = failed.length
         ? `${failed.length} feeds unavailable`
-        : "Market feeds connected";
+        : isLocal
+          ? "Live market feeds"
+          : "Published market snapshot";
       const notice = document.querySelector("#notice");
       notice.hidden = !failed.length;
       notice.textContent = failed.length
@@ -566,6 +673,21 @@
           failed.map(([k]) => k).join(", ") +
           ". Retained readings keep their source timestamps."
         : "";
+      const priceAge =
+        Date.now() -
+        Date.parse(data.current.prices?.timestamp?.replace(" ", "T"));
+      if (priceAge > 90 * 60000) {
+        notice.hidden = false;
+        notice.textContent +=
+          " Latest price reading is " +
+          n(priceAge / 3600000, 1) +
+          " hours old.";
+      }
+      if (!isLocal && Date.now() - Date.parse(data.publishedAt) > 3 * 3600000) {
+        notice.hidden = false;
+        notice.textContent +=
+          " This published snapshot is older than three hours.";
+      }
       if (
         view !== "analysis" ||
         refresh ||
@@ -594,6 +716,17 @@
     render();
   };
   document.querySelector("#refresh").onclick = () => load(true);
+  document.querySelector("#refresh").innerHTML =
+    icon("refresh") +
+    "<span>" +
+    (isLocal ? "Refresh" : "Reload snapshot") +
+    "</span>";
+  document.querySelector("#export").innerHTML =
+    icon("download") + "<span>Export history</span>";
+  document.querySelector("#range").onchange = (ev) => {
+    Extensions.setRange(ev.target.value);
+    render();
+  };
   window.onhashchange = () => {
     render();
     window.scrollTo(0, 0);

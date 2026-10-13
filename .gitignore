@@ -3,5 +3,11 @@ Thumbs.db
 node_modules/
 .env
 runtime-data/
+archive/
+.history-state/
+dist/
+__pycache__/
+*.pyc
+public/data/
 .env.*
 !.env.example

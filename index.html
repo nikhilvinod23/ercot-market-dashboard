@@ -3,16 +3,38 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="market-mode" content="live" />
     <title>ERCOT | Market dashboard</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <aside>
-      <a class="brand" href="#overview">ERCOT <span>Market dashboard</span></a>
+      <a class="brand" href="#overview"
+        ><svg
+          width="32"
+          height="32"
+          viewBox="0 0 32 32"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path d="M3 23h26M3 9h26" stroke="#526577" />
+          <path
+            d="M3 18h6l4-10 5 17 4-11h7"
+            stroke="#79c9b5"
+            stroke-width="2"
+            stroke-linejoin="round"
+          />
+        </svg>
+        ERCOT <span>Market dashboard</span></a
+      >
       <nav id="nav"></nav>
       <div class="sidebar-footer">
         <span id="feed-status">Loading market data…</span
-        ><small>Central Time · ERCOT / EIA / Open-Meteo</small>
+        ><small>Central Time · ERCOT / NOAA / EIA</small
+        ><a
+          href="https://github.com/nikhilvinod23/ercot-market-dashboard/tree/ercot-market-monitoring"
+          >Project source ↗</a
+        >
       </div>
     </aside>
     <main>
@@ -22,6 +44,11 @@
           <span id="as-of">Connecting…</span>
         </div>
         <div class="toolbar">
+          <select id="range" aria-label="Archive chart period">
+            <option value="24">24 hours</option>
+            <option value="48" selected>48 hours</option>
+            <option value="168">7 days</option>
+          </select>
           <select id="day" aria-label="Operating day"></select
           ><button id="refresh">Refresh</button>
         </div>
@@ -39,6 +66,8 @@
     <script src="analytics.js"></script>
     <script src="charts.js"></script>
     <script src="maps.js"></script>
+    <script src="icons.js"></script>
+    <script src="extensions.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
