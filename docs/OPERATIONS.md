@@ -11,6 +11,7 @@ Data health links to the collector workflow so an authorized user can use Run wo
 - SQLite indexes cover target time and collection time. The daily text-ledger exporter skips unchanged partitions using append-only row counts and limits shards to 25,000 records. The portable ledger still restores the entire database in a new Actions runner.
 - Browser polling uses conditional HTTP caching and a publication manifest rather than downloading several megabytes every minute. Hidden tabs pause polling and resume on visibility. Only the displayed view renders, and chart tables populate when expanded.
 - Published JSON has compact gzip equivalents. Browsers with streaming decompression fetch these files; plain JSON remains a fallback. The full archive never enters these files.
+- Script and stylesheet URLs include a content hash so browser/CDN caches cannot keep an earlier interface after a page reload.
 - Recent chart payloads and report retention remain bounded. Full observation and forecast-vintage archives remain outside browser payloads. Charts fit their container and expose exact values through touch, keyboard and data tables.
 
 ## Next architecture when the archive grows

@@ -25,7 +25,9 @@ fs.writeFileSync(
   path.join(out, "index.html"),
   fs
     .readFileSync(path.join(out, "index.html"), "utf8")
-    .replace('content="live"', 'content="published"'),
+    .replace('content="live"', 'content="published"')
+    .replace(/(src|href)="([\w-]+\.(?:js|css))"/g,(_,attribute,file)=>
+      `${attribute}="${file}?v=${createHash('sha256').update(fs.readFileSync(path.join(out,file))).digest('hex').slice(0,12)}"`),
 );
 const dashboard = JSON.parse(
   fs.readFileSync(path.join(out, "data", "dashboard.json")),
