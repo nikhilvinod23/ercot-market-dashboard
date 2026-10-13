@@ -1,326 +1,625 @@
-const state = { data: null, activeView: 'overview', loading: false };
-const toast = document.querySelector('#toast');
-let toastTimer;
-
-const viewCopy = {
-  overview: { label: 'Overview', title: 'Market overview', copy: 'Real-time operating conditions, price signals, and supply movement.' },
-  prices: { label: 'Prices', title: 'Price explorer', copy: 'Track hub and zone prices across the latest ERCOT intervals.' },
-  demand: { label: 'Demand & load', title: 'Demand and load', copy: 'Compare the current load forecast with day-ahead expectations.' },
-  supply: { label: 'Supply', title: 'Supply stack', copy: 'See what is generating, offline, and moving through storage.' },
-  reliability: { label: 'Reliability', title: 'Reliability monitor', copy: 'Follow reserve conditions, outages, and system headroom.' },
-  congestion: { label: 'Congestion', title: 'Spread monitor', copy: 'Surface location-driven price separation from the live price feed.' },
-};
-
-function showToast(message) {
-  toast.textContent = message;
-  toast.classList.add('visible');
-  window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => toast.classList.remove('visible'), 2600);
-}
-
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character]));
-}
-
-function number(value, decimals = 0) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return '—';
-  return parsed.toLocaleString('en-US', { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
-}
-
-function mw(value, decimals = 0) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return '—';
-  return `${number(parsed, decimals)} MW`;
-}
-
-function price(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? `$${number(parsed, 2)}` : '—';
-}
-
-function percent(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? `${number(parsed, 1)}%` : '—';
-}
-
-function signedPrice(value) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return '—';
-  return `${parsed >= 0 ? '+' : '−'}${price(Math.abs(parsed))}`;
-}
-
-function timeLabel(value) {
-  if (!value) return '—';
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function dateLabel(value) {
-  if (!value) return '—';
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? String(value).slice(0, 10) : parsed.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function liveBadge(text = 'Live') {
-  return `<span class="live-badge"><i class="live-dot"></i>${escapeHtml(text)}</span>`;
-}
-
-function emptyState(message = 'No live reading available') {
-  return `<div class="empty-state">${escapeHtml(message)}</div>`;
-}
-
-function lineChart(series, keys, colors, formatter = (value) => number(value), options = {}) {
-  const width = 860;
-  const height = options.height || 250;
-  const allValues = series.flatMap((item) => keys.map((key) => Number(item[key])).filter(Number.isFinite));
-  if (!allValues.length) return emptyState('No live series available');
-  const min = options.zero ? 0 : Math.min(...allValues);
-  const max = Math.max(...allValues);
-  const span = Math.max(max - min, 1);
-  const pad = span * 0.12;
-  const low = min - (options.zero ? 0 : pad);
-  const high = max + pad;
-  const x = (index) => series.length === 1 ? width / 2 : (index / (series.length - 1)) * width;
-  const y = (value) => height - ((value - low) / (high - low)) * (height - 22) - 10;
-  const guides = [0, 0.33, 0.66, 1].map((ratio) => {
-    const value = high - ratio * (high - low);
-    const lineY = y(value);
-    return `<line x1="0" y1="${lineY.toFixed(1)}" x2="${width}" y2="${lineY.toFixed(1)}" class="chart-grid"/><text x="0" y="${(lineY - 6).toFixed(1)}" class="chart-axis-label">${escapeHtml(formatter(value))}</text>`;
-  }).join('');
-  const paths = keys.map((key, index) => {
-    const points = series.map((item, pointIndex) => `${x(pointIndex).toFixed(1)},${y(Number(item[key])).toFixed(1)}`).join(' ');
-    return `<polyline points="${points}" fill="none" stroke="${colors[index]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
-  }).join('');
-  const legend = keys.map((key, index) => `<span><i style="background:${colors[index]}"></i>${escapeHtml(options.labels?.[key] || key)}</span>`).join('');
-  return `<div class="chart-shell"><svg class="data-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Live market series">${guides}${paths}</svg><div class="chart-legend">${legend}</div><div class="chart-scale"><span>${timeLabel(series[0].timestamp)}</span><span>${timeLabel(series[Math.floor(series.length / 2)].timestamp)}</span><span>${timeLabel(series.at(-1).timestamp)}</span></div></div>`;
-}
-
-function horizontalBars(items, maxValue, formatter = (value) => mw(value)) {
-  if (!items.length) return emptyState();
-  return `<div class="bar-list">${items.map((item) => `<div class="bar-row"><div class="bar-label"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(formatter(item.value))}</strong></div><div class="bar-track"><i style="width:${Math.max(3, Math.min(100, (item.value / maxValue) * 100))}%"></i></div></div>`).join('')}</div>`;
-}
-
-function metricCard(label, value, detail, tone = '') {
-  return `<article class="metric-card ${tone}"><span class="metric-label">${escapeHtml(label)}</span><strong>${value}</strong><span class="metric-detail">${escapeHtml(detail)}</span></article>`;
-}
-
-function panel(title, eyebrow, content, extra = '') {
-  return `<article class="panel"><div class="panel-heading"><div><p class="panel-kicker">${escapeHtml(eyebrow)}</p><h2>${escapeHtml(title)}</h2></div>${extra}</div>${content}</article>`;
-}
-
-function latestData() {
-  const data = state.data || {};
-  const latestPrice = data.prices?.latest || {};
-  const latestDemand = data.demand?.latest || {};
-  const latestStorage = data.storage?.latest || {};
-  const latestReserve = data.reserve?.latest || {};
-  const generation = data.fuel?.generation || [];
-  const renewable = generation.filter((item) => ['Wind', 'Solar', 'Hydro'].includes(item.label)).reduce((sum, item) => sum + Number(item.mw || 0), 0);
-  return { latestPrice, latestDemand, latestStorage, latestReserve, generation, renewable };
-}
-
-function renderOverview() {
-  const data = state.data || {};
-  const { latestPrice, latestDemand, latestStorage, latestReserve, generation, renewable } = latestData();
-  const topGeneration = [...generation].sort((a, b) => b.mw - a.mw).slice(0, 7);
-  const maxGeneration = Math.max(...topGeneration.map((item) => item.mw), 1);
-  const prices = data.prices?.series || [];
-  const reserve = data.reserve?.condition;
-  document.querySelector('#overview-content').innerHTML = `
-    <div class="metric-grid">
-      ${metricCard('HB Hub average', price(latestPrice.hub), `RTM · ${timeLabel(latestPrice.timestamp)}`, 'coral')}
-      ${metricCard('Load forecast', mw(latestDemand.loadForecast), `Hour ending ${latestDemand.hourEnding ?? '—'}`, 'teal')}
-      ${metricCard('Renewable output', `${percent((renewable / Math.max(data.fuel?.totalMw || 1, 1)) * 100)}`, mw(renewable), 'gold')}
-      ${metricCard('Reserve / PRC', mw(latestReserve.mw), reserve?.title || 'Live condition', 'purple')}
-    </div>
-    <div class="dashboard-grid overview-grid">
-      ${panel('Hub price movement', 'Real-time price', lineChart(prices, ['hub', 'houston', 'north', 'west'], ['#e66d4a', '#2b8c88', '#7b61a8', '#d09a3d'], (value) => price(value), { labels: { hub: 'HB Hub', houston: 'Houston', north: 'North', west: 'West' } }), liveBadge('Live'))}
-      ${panel('Generation stack', 'Current output', horizontalBars(topGeneration.map((item) => ({ label: item.label, value: item.mw })), maxGeneration), liveBadge('Live'))}
-    </div>
-    <div class="dashboard-grid overview-grid lower-grid">
-      ${panel('Operating condition', 'Power balance', `<div class="condition-card"><div class="condition-state"><span class="condition-orb"></span><div><strong>${escapeHtml(reserve?.title || 'Condition unavailable')}</strong><span>${escapeHtml(reserve?.condition_note || 'No condition note available')}</span></div></div><div class="condition-metrics"><div><span>Outages</span><strong>${mw(data.outages?.totalMw)}</strong></div><div><span>Storage net</span><strong>${mw(latestStorage.netOutput)}</strong></div><div><span>EEA level</span><strong>${reserve?.eea_level ?? '—'}</strong></div></div></div>`, liveBadge('Live'))}
-      ${panel('Live sources', 'Data health', sourceHealthMarkup(), `<span class="source-health-dot"></span>`)}
-    </div>`;
-}
-
-function priceRows(data) {
-  const latest = data.prices?.latest || {};
-  const locations = [['HB_HOUSTON', latest.houston], ['HB_NORTH', latest.north], ['HB_SOUTH', latest.south], ['HB_WEST', latest.west], ['HB_HUB_AVG', latest.hub]];
-  return locations.map(([label, value]) => {
-    const spread = Number(value) - Number(latest.hub);
-    return `<div class="data-row"><span><strong>${label}</strong><small>RTM SPP</small></span><strong>${price(value)}</strong><b class="${spread >= 0 ? 'positive' : 'negative'}">${signedPrice(spread)}</b></div>`;
-  }).join('');
-}
-
-function renderPrices() {
-  const data = state.data || {};
-  const series = data.prices?.series || [];
-  const latest = data.prices?.latest || {};
-  document.querySelector('#prices-content').innerHTML = `
-    <div class="metric-grid compact-metrics">
-      ${metricCard('HB Hub average', price(latest.hub), timeLabel(latest.timestamp), 'coral')}
-      ${metricCard('Houston spread', signedPrice(Number(latest.houston) - Number(latest.hub)), 'vs HB Hub', 'teal')}
-      ${metricCard('North spread', signedPrice(Number(latest.north) - Number(latest.hub)), 'vs HB Hub', 'purple')}
-      ${metricCard('West spread', signedPrice(Number(latest.west) - Number(latest.hub)), 'vs HB Hub', 'gold')}
-    </div>
-    <div class="dashboard-grid two-columns">
-      ${panel('RTM price curve', 'Latest 24 hours', lineChart(series, ['hub', 'houston', 'north', 'south', 'west'], ['#e66d4a', '#2b8c88', '#7b61a8', '#d09a3d', '#546e7a'], (value) => price(value), { labels: { hub: 'HB Hub', houston: 'Houston', north: 'North', south: 'South', west: 'West' } }), liveBadge('Live'))}
-      ${panel('Settlement points', 'Current interval', `<div class="data-table"><div class="data-row table-head"><span>Location</span><span>RTM</span><span>Δ hub</span></div>${priceRows(data)}</div><p class="data-foot">Source timestamp: ${escapeHtml(latest.timestamp || '—')}</p>`, liveBadge('Live'))}
-    </div>`;
-}
-
-function renderDemand() {
-  const data = state.data || {};
-  const demand = data.demand || {};
-  const latest = demand.latest || {};
-  const maxLoad = Math.max(...(demand.series || []).map((item) => Number(item.loadForecast) || 0), 1);
-  document.querySelector('#demand-content').innerHTML = `
-    <div class="metric-grid compact-metrics">
-      ${metricCard('Current load forecast', mw(latest.loadForecast), `HE ${latest.hourEnding ?? '—'}`, 'teal')}
-      ${metricCard('Day-ahead forecast', mw(latest.dayAheadForecast), 'Current interval', 'purple')}
-      ${metricCard('Forecast delta', mw(Number(latest.loadForecast) - Number(latest.dayAheadForecast)), 'Current minus DAM', 'coral')}
-      ${metricCard('Available capacity', mw(latest.capacity), 'Current-day HSL', 'gold')}
-    </div>
-    <div class="dashboard-grid two-columns">
-      ${panel('Load forecast curve', demand.dayDate || 'Current operating day', lineChart(demand.series || [], ['loadForecast', 'dayAheadForecast'], ['#2b8c88', '#7b61a8'], (value) => `${number(value / 1000, 0)}k`, { labels: { loadForecast: 'Current forecast', dayAheadForecast: 'Day-ahead' }, height: 280 }), liveBadge('Live'))}
-      ${panel('Hourly outlook', 'Current day', `<div class="data-table"><div class="data-row table-head"><span>HE</span><span>Current</span><span>Day-ahead</span></div>${(demand.series || []).slice(-8).map((item) => `<div class="data-row"><span><strong>${String(item.hourEnding).padStart(2, '0')}</strong></span><span>${mw(item.loadForecast)}</span><span>${mw(item.dayAheadForecast)}</span></div>`).join('')}</div>`, liveBadge('Live'))}
-    </div>`;
-}
-
-function renderSupply() {
-  const data = state.data || {};
-  const generation = data.fuel?.generation || [];
-  const sorted = [...generation].sort((a, b) => b.mw - a.mw);
-  const max = Math.max(...sorted.map((item) => item.mw), 1);
-  const storage = data.storage || {};
-  document.querySelector('#supply-content').innerHTML = `
-    <div class="metric-grid compact-metrics">
-      ${metricCard('Total generation', mw(data.fuel?.totalMw), timeLabel(data.fuel?.timestamp), 'teal')}
-      ${metricCard('Wind output', mw(generation.find((item) => item.label === 'Wind')?.mw), 'Current mix', 'gold')}
-      ${metricCard('Solar output', mw(generation.find((item) => item.label === 'Solar')?.mw), 'Current mix', 'coral')}
-      ${metricCard('Storage net output', mw(storage.latest?.netOutput), 'Discharge minus charge', 'purple')}
-    </div>
-    <div class="dashboard-grid two-columns">
-      ${panel('Generation by fuel', 'Current output', horizontalBars(sorted, max), liveBadge('Live'))}
-      ${panel('Storage dispatch', 'Last 8 intervals', lineChart(storage.series?.slice(-8) || [], ['netOutput', 'discharging'], ['#7b61a8', '#2b8c88'], (value) => mw(value), { labels: { netOutput: 'Net output', discharging: 'Discharging' }, height: 280 }), liveBadge('Live'))}
-    </div>
-    <div class="dashboard-grid two-columns lower-grid">
-      ${panel('Capacity reference', 'Monthly installed capacity', horizontalBars(Object.entries(data.fuel?.capacity || {}).map(([label, value]) => ({ label, value })), Math.max(...Object.values(data.fuel?.capacity || {}).map(Number), 1), (value) => mw(value)), liveBadge('Live'))}
-      ${panel('Generation outages', 'Current operating day', `<div class="outage-stack"><div><span>Dispatchable</span><strong>${mw(data.outages?.latest?.dispatchable?.total)}</strong><small>${mw(data.outages?.latest?.dispatchable?.unplanned)} unplanned</small></div><div><span>Renewable</span><strong>${mw(data.outages?.latest?.renewable?.total)}</strong><small>${mw(data.outages?.latest?.renewable?.unplanned)} unplanned</small></div><div class="outage-total"><span>Total</span><strong>${mw(data.outages?.totalMw)}</strong></div></div>`, liveBadge('Live'))}
-    </div>`;
-}
-
-function renderReliability() {
-  const data = state.data || {};
-  const reserve = data.reserve || {};
-  const condition = reserve.condition || {};
-  document.querySelector('#reliability-content').innerHTML = `
-    <div class="metric-grid compact-metrics">
-      ${metricCard('PRC', mw(reserve.latest?.mw), timeLabel(reserve.latest?.timestamp), 'teal')}
-      ${metricCard('EEA level', condition.eea_level ?? '—', condition.title || 'Current condition', 'gold')}
-      ${metricCard('Generation outages', mw(data.outages?.totalMw), 'Planned + unplanned', 'coral')}
-      ${metricCard('Available HSL', mw(data.demand?.latest?.capacity), 'Current-day capacity', 'purple')}
-    </div>
-    <div class="dashboard-grid two-columns">
-      ${panel('Physical responsive capability', 'PRC history', lineChart(reserve.series || [], ['mw'], ['#2b8c88'], (value) => mw(value / 1000, 0), { labels: { mw: 'PRC' }, height: 280, zero: true }), liveBadge('Live'))}
-      ${panel('System condition', 'Current status', `<div class="condition-card large-condition"><div class="condition-state"><span class="condition-orb"></span><div><strong>${escapeHtml(condition.title || 'Unavailable')}</strong><span>${escapeHtml(condition.condition_note || 'No condition note available')}</span></div></div><div class="condition-level"><span>Energy level</span><strong>${condition.energy_level_value ?? '—'}</strong></div></div><div class="notice-line"><span>Last outage reading</span><strong>${escapeHtml(data.outages?.latest?.deliveryTime || '—')}</strong></div>`, liveBadge('Live'))}
-    </div>`;
-}
-
-function renderCongestion() {
-  const data = state.data || {};
-  const latest = data.prices?.latest || {};
-  const locations = [['Houston', latest.houston], ['North', latest.north], ['South', latest.south], ['West', latest.west]].filter((item) => Number.isFinite(Number(item[1])));
-  const high = [...locations].sort((a, b) => b[1] - a[1]);
-  document.querySelector('#congestion-content').innerHTML = `
-    <div class="metric-grid compact-metrics">
-      ${metricCard('Highest hub', high[0]?.[0] || '—', price(high[0]?.[1]), 'coral')}
-      ${metricCard('Lowest hub', high.at(-1)?.[0] || '—', price(high.at(-1)?.[1]), 'teal')}
-      ${metricCard('Max spread', signedPrice((high[0]?.[1] || 0) - (high.at(-1)?.[1] || 0)), 'Latest interval', 'gold')}
-      ${metricCard('Outages in system', mw(data.outages?.totalMw), 'Context for spreads', 'purple')}
-    </div>
-    <div class="dashboard-grid two-columns">
-      ${panel('Location spread board', 'RTM hub averages', `<div class="spread-board">${high.map(([label, value]) => `<div class="spread-row"><span>${label}</span><div class="spread-track"><i style="width:${Math.max(8, Math.min(100, ((value - (high.at(-1)?.[1] || 0)) / Math.max((high[0]?.[1] || 1) - (high.at(-1)?.[1] || 0), 1)) * 100))}%"></i></div><strong>${price(value)}</strong></div>`).join('')}</div>`, liveBadge('Live'))}
-      ${panel('Price separation', 'Latest 24 hours', lineChart(data.prices?.series || [], ['houston', 'north', 'south', 'west'], ['#e66d4a', '#7b61a8', '#2b8c88', '#d09a3d'], (value) => price(value), { labels: { houston: 'Houston', north: 'North', south: 'South', west: 'West' }, height: 280 }), liveBadge('Live'))}
-    </div>
-    <div class="signal-strip"><span class="signal-mark">△</span><div><strong>Spread monitor</strong><p>Use the price gap and outage context to decide which locations need deeper nodal investigation.</p></div><span class="data-foot">${escapeHtml(latest.timestamp || '—')}</span></div>`;
-}
-
-function sourceHealthMarkup() {
-  const sources = state.data?.sources || {};
-  return `<div class="source-health-grid">${Object.entries(sources).map(([name, item]) => `<div><span class="source-health-dot ${item.ok ? 'ok' : 'bad'}"></span><span>${escapeHtml(name)}</span><strong>${item.ok ? 'OK' : '—'}</strong></div>`).join('')}</div>`;
-}
-
-function renderAll() {
-  renderOverview();
-  renderPrices();
-  renderDemand();
-  renderSupply();
-  renderReliability();
-  renderCongestion();
-}
-
-function updateShell() {
-  const data = state.data;
-  const sources = Object.values(data?.sources || {});
-  const good = sources.filter((item) => item.ok).length;
-  const status = good === sources.length ? 'Connected' : good ? 'Partial' : 'Offline';
-  document.querySelector('#connection-label').textContent = status;
-  document.querySelector('#source-count').textContent = `${good}/${sources.length}`;
-  document.querySelector('#source-list').innerHTML = Object.entries(data?.sources || {}).map(([name, item]) => `<div><span class="source-health-dot ${item.ok ? 'ok' : 'bad'}"></span><span>${escapeHtml(name)}</span></div>`).join('');
-  document.querySelector('#source-updated').textContent = `Fetched ${timeLabel(data?.fetchedAt)}`;
-  document.querySelector('#last-sync').textContent = `Synced ${timeLabel(data?.fetchedAt)}`;
-  document.querySelector('#footer-sync').textContent = `Updated ${timeLabel(data?.fetchedAt)}`;
-  document.querySelector('#snapshot-date').textContent = dateLabel(data?.fetchedAt);
-  document.querySelector('#snapshot-time').textContent = `Live snapshot · ${timeLabel(data?.fetchedAt)} CT`;
-  document.querySelector('#global-error').hidden = good > 0;
-  document.querySelector('#global-error').textContent = 'ERCOT feeds are unavailable. Try refresh again.';
-}
-
-function selectView(viewName, updateHash = true) {
-  const selected = viewCopy[viewName] ? viewName : 'overview';
-  state.activeView = selected;
-  const copy = viewCopy[selected];
-  document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === selected));
-  document.querySelectorAll('[data-view-panel]').forEach((panel) => panel.classList.toggle('active', panel.dataset.viewPanel === selected));
-  document.querySelector('#breadcrumb-section').textContent = copy.label;
-  document.querySelector('#page-title').textContent = copy.title;
-  document.querySelector('#heading-copy').textContent = copy.copy;
-  if (updateHash) window.history.replaceState(null, '', `#view-${selected}`);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-async function loadLiveData() {
-  if (state.loading) return;
-  state.loading = true;
-  document.querySelector('#refresh-button').classList.add('is-loading');
-  try {
-    const response = await fetch('/api/live', { cache: 'no-store' });
-    if (!response.ok) throw new Error(`Live feed request failed (${response.status})`);
-    state.data = await response.json();
-    updateShell();
-    renderAll();
-    showToast('Live ERCOT data refreshed');
-  } catch (error) {
-    document.querySelector('#global-error').hidden = false;
-    document.querySelector('#global-error').textContent = error.message;
-    showToast('Live data refresh failed');
-  } finally {
-    state.loading = false;
-    document.querySelector('#refresh-button').classList.remove('is-loading');
+(() => {
+  const { escape: e, number: n, valid, chart } = UI;
+  let data = null,
+    view = "overview",
+    day = "";
+  const views = {
+    overview: "Overview",
+    prices: "Prices & geography",
+    demand: "Demand & forecasts",
+    weather: "Weather",
+    resources: "Generation & storage",
+    ancillary: "Ancillary services",
+    analysis: "Trading & battery",
+    health: "Data health",
+  };
+  const content = document.querySelector("#content");
+  const panel = (title, body, note = "", wide = false) =>
+    `<section class="panel ${wide ? "wide" : ""}"><div class="panel-head"><h2>${title}</h2><small>${e(note)}</small></div>${body}</section>`;
+  const plot = (id) => `<div class="chart" id="${id}"></div>`;
+  const table = (heads, rows) =>
+    `<div class="table-scroll"><table><thead><tr>${heads.map((h) => "<th>" + e(h) + "</th>").join("")}</tr></thead><tbody>${rows.map((r) => "<tr>" + r.map((v) => "<td>" + e(v) + "</td>").join("") + "</tr>").join("") || "<tr><td>No published data available</td></tr>"}</tbody></table></div>`;
+  const series = (k) =>
+    (data.series[k] || []).filter((r) => r.timestamp?.slice(0, 10) === day);
+  const metric = (label, value, unit, previous, note) =>
+    `<div class="metric"><label>${label}</label><strong>${n(value, unit === "$ / MWh" ? 2 : 0)} <small>${unit}</small></strong><small>${e(note || "")}</small><div class="comparison">${valid(previous) ? "Previous day " + n(previous, 2) + " · Δ " + n(value - previous, 2) : "Previous-day comparison unavailable"}</div></div>`;
+  const priceLines = [
+    { key: "hbHouston", label: "Houston" },
+    { key: "hbNorth", label: "North" },
+    { key: "hbSouth", label: "South" },
+    { key: "hbWest", label: "West" },
+  ];
+  const report = (k) => data.reports[k]?.rows || [];
+  function priceRows() {
+    const p = series("prices");
+    return p.map((r) => {
+      const he =
+        +r.timestamp.slice(11, 13) + (+r.timestamp.slice(14, 16) > 0 ? 1 : 0);
+      const dam = data.series.dam.find(
+        (d) => d.timestamp?.slice(0, 10) === day && +d.hourEnding === he,
+      );
+      return {
+        ...r,
+        dam: dam?.hbHubAvg,
+        spread: valid(dam?.hbHubAvg) ? r.hbHubAvg - dam.hbHubAvg : null,
+      };
+    });
   }
-}
-
-document.querySelectorAll('.nav-item').forEach((item) => item.addEventListener('click', (event) => {
-  event.preventDefault();
-  selectView(item.dataset.view);
-}));
-
-document.querySelector('#refresh-button').addEventListener('click', loadLiveData);
-window.addEventListener('hashchange', () => selectView(window.location.hash.replace('#view-', ''), false));
-
-const initialView = window.location.hash.replace('#view-', '');
-selectView(viewCopy[initialView] ? initialView : 'overview', false);
-loadLiveData();
-window.setInterval(loadLiveData, 60000);
+  function render() {
+    if (!data) return;
+    view = location.hash.slice(1).replace("view-", "") || "overview";
+    if (!views[view]) view = "overview";
+    document.querySelector("#page-title").textContent = views[view];
+    document.querySelector("#nav").innerHTML = Object.entries(views)
+      .map(
+        ([k, v]) =>
+          `<a href="#${k}" ${view === k ? 'aria-current="page"' : ""}>${v}</a>`,
+      )
+      .join("");
+    const c = data.current;
+    if (view === "overview") {
+      const prev = report("yesterdayPrices").filter(
+        (r) => r.settlementPoint === "HB_HUBAVG",
+      );
+      const previousPrice = prev.find(
+        (r) =>
+          +r.deliveryHour ===
+            +c.prices?.timestamp.slice(11, 13) +
+              (+c.prices?.timestamp.slice(14, 16) > 0 ? 1 : 0) &&
+          +r.deliveryInterval ===
+            (+c.prices?.timestamp.slice(14, 16) === 0
+              ? 4
+              : Math.ceil(+c.prices?.timestamp.slice(14, 16) / 15)),
+      );
+      content.innerHTML = `<div class="metrics">${metric("Hub average · real-time SPP", c.prices?.hbHubAvg, "$ / MWh", previousPrice?.settlementPointPrice, c.prices?.timestamp)}${metric("System demand · measured", c.supply?.actual, "MW", null, c.supply?.timestamp)}${metric("Completed-hour demand", c.demand?.actual, "MW", data.previous.demand?.actual, c.demand?.timestamp)}${metric("Available reserves", c.prc, "MW", null, "Latest ERCOT PRC")}</div><div class="grid">${panel("Hub prices", plot("prices"), "15-minute real-time settlement prices")}${panel("Demand", plot("demand"), "Actual vs day-ahead and updated forecast")}${panel("Generation mix", plot("fuel"), "Measured system output · MW")}${panel(
+        "Market snapshot",
+        table(
+          ["Metric", "Latest"],
+          [
+            ["Battery net output (MW)", n(c.storage?.net)],
+            ["Battery discharge (MW)", n(c.storage?.discharge)],
+            ["Battery charging (MW)", n(c.storage?.charge)],
+            [
+              "Load forecast error (MW)",
+              valid(c.demand?.actual) && valid(c.demand?.dayAhead)
+                ? n(c.demand.actual - c.demand.dayAhead)
+                : "—",
+            ],
+            [
+              "Condition",
+              typeof c.condition === "string"
+                ? c.condition
+                : c.condition?.title || "—",
+            ],
+          ],
+        ),
+      )}</div>`;
+      const currentRows = data.series.prices.filter(
+        (r) =>
+          r.timestamp.slice(0, 10) === data.operatingDay && valid(r.hbHubAvg),
+      );
+      const priorRows = prev.map((r) => ({ value: +r.settlementPointPrice }));
+      const stats = (rows) =>
+        rows.length
+          ? {
+              mean:
+                rows.reduce((s, r) => s + (r.hbHubAvg ?? r.value), 0) /
+                rows.length,
+              peak: Math.max(...rows.map((r) => r.hbHubAvg ?? r.value)),
+              low: Math.min(...rows.map((r) => r.hbHubAvg ?? r.value)),
+            }
+          : {};
+      const today = stats(currentRows),
+        yesterday = stats(priorRows);
+      content.insertAdjacentHTML(
+        "beforeend",
+        panel(
+          "Daily comparison",
+          table(
+            ["Hub average SPP", "Today to latest", "Previous full day"],
+            [
+              ["Average $/MWh", n(today.mean, 2), n(yesterday.mean, 2)],
+              ["High $/MWh", n(today.peak, 2), n(yesterday.peak, 2)],
+              ["Low $/MWh", n(today.low, 2), n(yesterday.low, 2)],
+              ["15-minute readings", currentRows.length, priorRows.length],
+            ],
+          ),
+          "Partial current day versus completed previous day",
+        ),
+      );
+      chart("prices", series("prices"), priceLines, "$/MWh");
+      demandChart();
+      fuelChart();
+    } else if (view === "prices") {
+      content.innerHTML = `<div class="grid">${panel("Real-time hub prices", plot("prices"), "SPP · 15 minutes", true)}${panel("Nodal LMP", '<div id="nodes"></div>', "SCED LMP · captured map history")}${panel("Regional hub prices", '<div id="hubs"></div>', "Hub markers, not regional boundary prices")}${panel(
+        "Binding constraints",
+        table(
+          ["Time", "Constraint", "Shadow $/MW", "Limit", "Flow"],
+          report("constraints")
+            .filter((r) => +r.shadowPrice > 0)
+            .slice(0, 30)
+            .map((r) => [
+              r.SCEDTimestamp,
+              r.constraintName,
+              n(r.shadowPrice, 2),
+              n(r.limit),
+              n(r.value),
+            ]),
+        ),
+        "Published report · may lag",
+        true,
+      )}</div>`;
+      chart("prices", series("prices"), priceLines, "$/MWh");
+      Maps.nodal("nodes", data.nodes);
+      Maps.regional(
+        "hubs",
+        data.geometry,
+        series("prices").map((r) => ({
+          timestamp: r.timestamp,
+          values: {
+            hou: r.hbHouston,
+            north: r.hbNorth,
+            south: r.hbSouth,
+            west: r.hbWest,
+          },
+          markers: [
+            { name: "Houston", value: r.hbHouston },
+            { name: "Dallas", value: r.hbNorth },
+            { name: "San Antonio", value: r.hbSouth },
+            { name: "Midland", value: r.hbWest },
+          ],
+        })),
+        { unit: "$/MWh", markers: true },
+      );
+    } else if (view === "demand") {
+      const rows = report("regional");
+      const frames = rows
+        .map((r) => ({
+          timestamp:
+            (r.operatingDay || r.deliveryDate || "") +
+            " HE " +
+            (r.hourEnding || r.hour || ""),
+          values: {
+            north: r.north,
+            east: r.east,
+            northC: r.northC,
+            west: r.west,
+            farWest: r.farWest,
+            southC: r.southC,
+            coast: r.coast,
+            southern: r.southern,
+          },
+        }))
+        .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      content.innerHTML = `<div class="grid">${panel("System demand", plot("demand"), "MW · actual and forecast", true)}${panel("Regional demand", '<div id="regions"></div>', "Actual weather-zone load · delayed daily publication")}${panel("Forecast errors", plot("errors"), "Actual minus day-ahead forecast · MW")}${panel(
+        "Forecast snapshots",
+        table(
+          ["Captured", "Current-day hours", "Next-day hours"],
+          data.forecastVintages
+            .slice(-10)
+            .reverse()
+            .map((v) => [v.capturedAt, v.series.length, v.nextDay.length]),
+        ),
+        "Capture time is not forecast issuance time",
+        true,
+      )}</div>`;
+      demandChart();
+      chart(
+        "errors",
+        series("demand").map((r) => ({
+          ...r,
+          error:
+            valid(r.actual) && valid(r.dayAhead) ? r.actual - r.dayAhead : null,
+        })),
+        [{ key: "error", label: "Day-ahead error" }],
+        "MW",
+      );
+      Maps.regional("regions", data.geometry, frames, { unit: "MW" });
+    } else if (view === "weather") {
+      content.innerHTML = `<div class="filters"><label>Location <select id="city">${(data.weather?.cities || []).map((c, i) => `<option value="${i}">${e(c.name)}</option>`).join("")}</select></label><label>Map <select id="weather-mode"><option value="temperature">Temperature °F</option><option value="error">Observed − prior-day forecast °F</option><option value="wind">Wind mph</option><option value="solar">Solar radiation W/m²</option></select></label></div><div class="grid">${panel("Weather comparison", plot("weather-chart"), "NOAA station observations vs Open-Meteo forecasts")}${panel("Weather geography", '<div id="weather-map"></div>', "Station temperature error where observations exist")}${panel("Forecast source", table(["Source", "Updated", "Previous run"], [["Open-Meteo", data.weather?.fetchedAt || "Unavailable", data.weather?.previousRunAvailable ? "Available" : "Unavailable"]]), "Temperature · 10m wind · surface radiation", true)}</div>`;
+      const redraw = () => {
+        const cities = data.weather?.cities || [],
+          city = cities[+document.querySelector("#city").value];
+        chart(
+          "weather-chart",
+          city?.series || [],
+          [
+            { key: "temperature", label: "Current model" },
+            {
+              key: "previousForecast",
+              label: "Prior-day forecast",
+              dash: true,
+            },
+            { key: "observed", label: "NOAA observed" },
+          ],
+          "°F",
+        );
+        const mode = document.querySelector("#weather-mode").value;
+        Maps.regional(
+          "weather-map",
+          data.geometry,
+          (cities[0]?.series || []).map((r, i) => {
+            const markers = cities.map((c) => {
+              const v = c.series[i];
+              return {
+                name: c.name,
+                value:
+                  mode === "error"
+                    ? valid(v?.previousForecast) && valid(v?.observed)
+                      ? v.observed - v.previousForecast
+                      : null
+                    : v?.[mode],
+              };
+            });
+            return {
+              timestamp: r.timestamp,
+              values: Object.fromEntries(markers.map((m) => [m.name, m.value])),
+              markers,
+            };
+          }),
+          {
+            markers: true,
+            unit: mode === "wind" ? "mph" : mode === "solar" ? "W/m²" : "°F",
+          },
+        );
+      };
+      document.querySelector("#city").onchange = redraw;
+      document.querySelector("#weather-mode").onchange = redraw;
+      redraw();
+    } else if (view === "resources") {
+      content.innerHTML = `<div class="filters"><label>Resources <select id="resource-filter"><option value="renewables">Wind & solar</option><option value="battery">Batteries</option><option value="all">All generation</option></select></label></div><div class="grid">${panel("Generation locations", '<div id="plants"></div>', "EIA inventory · Texas, not exclusively ERCOT", true)}${panel("Generation mix", plot("fuel"), "System output · MW")}${panel("Battery fleet dispatch", plot("storage"), "Measured aggregate · MW")}</div>`;
+      const draw = () => {
+        const f = document.querySelector("#resource-filter").value;
+        Maps.plants(
+          "plants",
+          (data.resources?.plants || []).filter((p) =>
+            f === "all" || f === "battery"
+              ? f === "all" || p.battery > 0
+              : p.wind > 0 || p.solar > 0,
+          ),
+        );
+      };
+      document.querySelector("#resource-filter").onchange = draw;
+      draw();
+      fuelChart();
+      chart(
+        "storage",
+        series("storage"),
+        [
+          { key: "charge", label: "Charging" },
+          { key: "discharge", label: "Discharging" },
+          { key: "net", label: "Net output" },
+        ],
+        "MW",
+      );
+    } else if (view === "ancillary") {
+      const types = ["REGUP", "REGDN", "RRS", "ECRS", "NSPIN"];
+      const rt = report("asRt"),
+        dam = report("asDam");
+      content.innerHTML = `<div class="grid">${panel("Ancillary capacity", plot("as-cap"), "Available / deployed capacity, not energy generation", true)}${panel(
+        "Real-time clearing prices",
+        table(
+          ["Date", "Hour", "Interval", "Service", "$/MW"],
+          rt
+            .slice()
+            .sort(
+              (a, b) =>
+                String(b.deliveryDate).localeCompare(String(a.deliveryDate)) ||
+                b.deliveryHour - a.deliveryHour ||
+                b.deliveryInt - a.deliveryInt,
+            )
+            .slice(0, 40)
+            .map((r) => [
+              r.deliveryDate,
+              r.deliveryHour,
+              r.deliveryInt,
+              r.ASType,
+              n(r.MCPC, 2),
+            ]),
+        ),
+        "Published RT capacity prices",
+      )}${panel(
+        "Day-ahead clearing prices",
+        table(
+          ["Date", "Hour", "Service", "$/MW"],
+          dam
+            .slice(0, 40)
+            .map((r) => [
+              r.deliveryDate,
+              r.hourEnding,
+              r.ancillaryType,
+              n(r.MCPC, 2),
+            ]),
+        ),
+        "Capacity awards are distinct from deployment",
+      )}${panel(
+        "Ancillary procurement",
+        table(
+          Object.keys(report("asSold")[0] || {}),
+          report("asSold")
+            .slice(0, 24)
+            .map((r) => Object.values(r)),
+        ),
+        "DAM services sold · published awards",
+        true,
+      )}</div>`;
+      chart(
+        "as-cap",
+        series("ancillary"),
+        [
+          { key: "rrs", label: "RRS" },
+          { key: "ecrs", label: "ECRS" },
+          { key: "nsrs", label: "Non-spin" },
+          { key: "undeployedRegUp", label: "Undeployed Reg Up" },
+          { key: "deployedRegUp", label: "Deployed Reg Up" },
+        ],
+        "MW",
+      );
+    } else if (view === "analysis") {
+      content.innerHTML = `<div class="grid">${panel(
+        "Battery energy replay",
+        `<form id="battery-form"><div class="form-grid">${[
+          ["power", "Power MW", 100],
+          ["energy", "Energy MWh", 200],
+          ["efficiency", "Round-trip efficiency %", 88],
+          ["initial", "Initial SOC %", 50],
+          ["degradation", "Discharge cost $/MWh", 5],
+        ]
+          .map(
+            ([id, label, v]) =>
+              `<label>${label}<input name="${id}" type="number" step="any" value="${v}" required></label>`,
+          )
+          .join(
+            "",
+          )}<label>Hub<select name="hub">${priceLines.map((l) => `<option value="${l.key}">${l.label}</option>`).join("")}</select></label></div><button>Run replay</button></form><div id="battery-results"></div>`,
+        "Hindsight optimization · energy only, no ancillary revenue",
+        true,
+      )}${panel("Real-time versus day-ahead", plot("spread"), "Hub average · $/MWh")}${panel("Paper trading", `<form id="trade-form"><div class="form-grid"><label>Side<select name="side"><option value="buy">Buy DAM / sell RT</option><option value="sell">Sell DAM / buy RT</option></select></label><label>MW<input name="mw" type="number" value="10" min="0" step="any"></label><label>Fee $/MWh<input name="fee" type="number" value="0" min="0" step="any"></label></div><button>Replay matched intervals</button></form><div id="trade-results"></div>`, "Illustrative settlement P&L · excludes credit and execution")}</div>`;
+      chart(
+        "spread",
+        priceRows(),
+        [
+          { key: "hbHubAvg", label: "RT" },
+          { key: "dam", label: "DAM" },
+          { key: "spread", label: "RT − DAM" },
+        ],
+        "$/MWh",
+      );
+      document.querySelector("#battery-form").onsubmit = (ev) => {
+        ev.preventDefault();
+        const f = Object.fromEntries(new FormData(ev.target));
+        const rows = series("prices")
+          .filter((r) => valid(r[f.hub]))
+          .map((r) => ({
+            timestamp: r.timestamp,
+            price: r[f.hub],
+            hours: 0.25,
+          }));
+        const target = document.querySelector("#battery-results");
+        try {
+          if (!rows.length) throw Error("No price intervals for this day.");
+          const result = Analytics.batteryOptimize(rows, {
+            power: +f.power,
+            energy: +f.energy,
+            efficiency: +f.efficiency / 100,
+            initial: +f.initial,
+            degradation: +f.degradation,
+          });
+          target.innerHTML = `<div class="summary-row">Net energy value $${n(result.profit, 2)} · charged ${n(result.charged, 1)} MWh · discharged ${n(result.discharged, 1)} MWh · terminal SOC ${n(result.initialSoc, 1)}%</div><small>Collected intervals only; missing intervals omitted. SOC resolution 2.5%. Same initial and terminal SOC. Excludes capital, tariffs, ancillary services and node basis.</small>${plot("dispatch")}${plot("soc")}`;
+          chart(
+            "dispatch",
+            result.schedule,
+            [{ key: "mw", label: "Dispatch (+ discharge)" }],
+            "MW",
+          );
+          chart(
+            "soc",
+            result.schedule,
+            [{ key: "soc", label: "State of charge" }],
+            "%",
+          );
+        } catch (err) {
+          target.textContent = err.message;
+        }
+      };
+      document.querySelector("#trade-form").onsubmit = (ev) => {
+        ev.preventDefault();
+        const f = Object.fromEntries(new FormData(ev.target));
+        const rows = priceRows().filter((r) => valid(r.dam));
+        const pnl = rows.reduce(
+          (sum, r) =>
+            sum +
+            Analytics.paperPnl({
+              ...f,
+              mw: +f.mw,
+              fee: +f.fee,
+              rt: r.hbHubAvg,
+              dam: r.dam,
+            }),
+          0,
+        );
+        document.querySelector("#trade-results").textContent = rows.length
+          ? `P&L $${n(pnl, 2)} · ${rows.length} matched 15-minute intervals`
+          : "No matched DAM and RT intervals available.";
+      };
+    } else {
+      content.innerHTML =
+        panel(
+          "Source status",
+          table(
+            ["Feed", "Status", "Source timestamp", "Fetched", "Issue"],
+            Object.entries(data.sources).map(([k, s]) => [
+              k,
+              s.ok ? "Available" : "Error",
+              s.lastUpdated || "—",
+              s.fetchedAt || "—",
+              s.error || "",
+            ]),
+          ),
+          "",
+          true,
+        ) +
+        panel(
+          "Report status",
+          table(
+            ["Report", "Status", "Fetched", "Rows", "Issue"],
+            Object.entries(data.reports).map(([k, s]) => [
+              k,
+              s.ok ? "Available" : "Error",
+              s.fetchedAt || "—",
+              s.rows?.length || 0,
+              s.error || "",
+            ]),
+          ),
+          "Report publication times differ",
+        ) +
+        panel(
+          "Collection",
+          table(
+            ["Item", "Status"],
+            [
+              ["Market history begins", data.historyStarted || "Pending"],
+              ["Price history retention", "30 days local"],
+              [
+                "Nodal history retention",
+                "7 days local; capture begins when app runs",
+              ],
+              ["Weather", data.weather?.measurement || "Unavailable"],
+              ["Resource inventory", data.resources?.scope || "Unavailable"],
+              [
+                "Battery optimization",
+                "Retrospective energy-only model; not a revenue forecast",
+              ],
+            ],
+          ),
+        );
+    }
+  }
+  function demandChart() {
+    chart(
+      "demand",
+      series("demand"),
+      [
+        { key: "actual", label: "Actual" },
+        { key: "dayAhead", label: "Day-ahead", dash: true },
+        { key: "forecast", label: "Updated forecast", dash: true },
+      ],
+      "MW",
+    );
+  }
+  function fuelChart() {
+    chart(
+      "fuel",
+      series("fuel"),
+      [
+        "Natural Gas",
+        "Wind",
+        "Solar",
+        "Nuclear",
+        "Coal and Lignite",
+        "Power Storage",
+      ].map((key) => ({ key, label: key })),
+      "MW",
+    );
+  }
+  async function load(refresh = false) {
+    const retained = Array.from(
+      document.querySelectorAll(
+        "#city,#weather-mode,#resource-filter,.map-controls input",
+      ),
+    ).map((el) => ({
+      selector: el.id ? "#" + el.id : "#" + el.closest("[id]").id + " input",
+      value: el.value,
+      kind: el.tagName,
+    }));
+    const button = document.querySelector("#refresh");
+    button.disabled = true;
+    try {
+      const res = await fetch(refresh ? "/api/refresh" : "/api/market");
+      if (!res.ok) throw Error("Market service unavailable");
+      data = await res.json();
+      const days = data.days.length
+        ? data.days
+        : [
+            new Intl.DateTimeFormat("en-CA", {
+              timeZone: "America/Chicago",
+            }).format(new Date()),
+          ];
+      if (!day || !days.includes(day)) day = days[0];
+      document.querySelector("#day").innerHTML = days
+        .map((d) => `<option ${d === day ? "selected" : ""}>${d}</option>`)
+        .join("");
+      document.querySelector("#as-of").textContent =
+        "Latest price " +
+        (data.current.prices?.timestamp || "pending") +
+        " · Central Time";
+      document.querySelector("#history-status").textContent =
+        "Local history from " + (data.historyStarted || "first reading");
+      const failed = Object.entries(data.sources).filter(([k, v]) => !v.ok);
+      document.querySelector("#feed-status").textContent = failed.length
+        ? `${failed.length} feeds unavailable`
+        : "Market feeds connected";
+      const notice = document.querySelector("#notice");
+      notice.hidden = !failed.length;
+      notice.textContent = failed.length
+        ? "Unavailable feeds: " +
+          failed.map(([k]) => k).join(", ") +
+          ". Retained readings keep their source timestamps."
+        : "";
+      if (
+        view !== "analysis" ||
+        refresh ||
+        !document.querySelector("#battery-form")
+      ) {
+        render();
+        for (const saved of retained) {
+          const el = document.querySelector(saved.selector);
+          if (el) {
+            el.value = saved.value;
+            el.dispatchEvent(
+              new Event(saved.kind === "SELECT" ? "change" : "input"),
+            );
+          }
+        }
+      }
+    } catch (err) {
+      document.querySelector("#notice").hidden = false;
+      document.querySelector("#notice").textContent = err.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+  document.querySelector("#day").onchange = (ev) => {
+    day = ev.target.value;
+    render();
+  };
+  document.querySelector("#refresh").onclick = () => load(true);
+  window.onhashchange = () => {
+    render();
+    window.scrollTo(0, 0);
+  };
+  document.querySelector("#export").onclick = () => {
+    const blob = new Blob(
+        [
+          JSON.stringify(
+            {
+              series: data.series,
+              nodes: data.nodes,
+              forecastVintages: data.forecastVintages,
+            },
+            null,
+            2,
+          ),
+        ],
+        { type: "application/json" },
+      ),
+      url = URL.createObjectURL(blob),
+      a = document.createElement("a");
+    a.href = url;
+    a.download = "ercot-market-history.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  load();
+  setInterval(() => load(), 60000);
+})();

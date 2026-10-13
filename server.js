@@ -91,6 +91,7 @@ class ErcotTokenManager {
 }
 
 const tokenManager = new ErcotTokenManager();
+const marketData = require('./market-data')({ fetchPublicJson, fetchErcot, fetchWithTimeout });
 
 async function fetchWithTimeout(url, options = {}) {
   const controller = new AbortController();
@@ -312,6 +313,9 @@ function contentType(filePath) {
 
 function serveStatic(req, res, pathname) {
   const relative = pathname === '/' ? 'index.html' : decodeURIComponent(pathname.slice(1));
+  if (!['index.html','app.js','styles.css','charts.js','maps.js','analytics.js'].includes(relative)) {
+    res.writeHead(404); res.end('Not found'); return;
+  }
   if (!relative || relative.startsWith('.') || relative.includes('..') || relative === 'server.js') {
     res.writeHead(404); res.end('Not found'); return;
   }
@@ -339,6 +343,14 @@ async function handleApi(req, res, requestUrl) {
     return json(res, 200, { ok: true, configured, tokenMode: tokenManager.mode(), tokenExpiresAt: tokenManager.expiresAt || null, cacheEntries: cache.size, authentication });
   }
   try {
+    if (requestUrl.pathname === '/api/market') return json(res, 200, marketData.current());
+    if (requestUrl.pathname === '/api/refresh') { await marketData.refresh(); return json(res, 200, marketData.current()); }
+    if (requestUrl.pathname === '/api/contour') {
+      const upstream = await fetchWithTimeout('https://www.ercot.com/content/cdr/contours/rtmLmp.png');
+      if (!upstream.ok) return json(res, 502, { error:'Map image unavailable' });
+      res.writeHead(200, { 'Content-Type':'image/png', 'Cache-Control':'max-age=300' });
+      res.end(Buffer.from(await upstream.arrayBuffer())); return;
+    }
     if (requestUrl.pathname === '/api/live') return json(res, 200, await getLiveDashboard());
     if (requestUrl.pathname === '/api/ercot/products') return json(res, 200, await fetchErcot(ERCOT_API_ROOT, 60));
     if (requestUrl.pathname === '/api/ercot/product') return json(res, 200, await getProduct(requestUrl.searchParams.get('emilId')));
@@ -358,3 +370,4 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => console.log(`ERCOT dashboard listening at http://127.0.0.1:${PORT}`));
+marketData.refresh().catch(console.error);
