@@ -690,7 +690,8 @@
         " · Central Time";
       document.querySelector("#history-status").textContent =
         n(data.monitor?.archive_records) +
-        " archived observations · hourly Python collector";
+        " archived observations · " +
+        (isLocal ? "hourly Python collector" : "Python archive · publication target 30 minutes");
       const failed = Object.entries(data.sources).filter(([k, v]) => !v.ok);
       document.querySelector("#feed-status").textContent = failed.length
         ? `${failed.length} feeds unavailable`
