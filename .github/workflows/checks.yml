@@ -21,3 +21,4 @@ jobs:
       - run: node --test analytics.test.js
       - run: node --check app.js && node --check extensions.js && node --check charts.js && node --check maps.js
       - run: node --check predictions.js
+      - run: node --check data-client.js && node --check build.js

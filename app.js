@@ -627,7 +627,8 @@
       "MW",
     );
   }
-  let loading = false;
+  let loading = false,
+    publicationRevision = null;
   async function load(refresh = false) {
     if (loading) return;
     loading = true;
@@ -643,26 +644,30 @@
     const button = document.querySelector("#refresh");
     button.disabled = true;
     try {
-      if (!isLocal && data && !refresh) {
-        const status = await fetch("data/status.json", { cache: "no-cache" })
+      let status = null;
+      if (!isLocal) {
+        status = await fetch("data/status.json", { cache: "no-cache" })
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null);
-        if (status?.publishedAt === data.publishedAt) {
+        if (
+          data &&
+          !refresh &&
+          status?.revision &&
+          status.revision === publicationRevision
+        ) {
           freshness();
           return;
         }
       }
-      const res = await fetch(
+      data = await DataClient.json(
         isLocal
           ? refresh
             ? "/api/refresh"
             : "/api/market"
           : "data/dashboard.json",
-        { cache: "no-cache" },
       );
-      if (!res.ok) throw Error("Market service unavailable");
-      data = await res.json();
       await Extensions.load(data);
+      publicationRevision = status?.revision || null;
       mergeArchive();
       const days = data.days.length
         ? data.days

@@ -46,9 +46,7 @@ window.Extensions = (() => {
     const names = ["latest", "fuels", "reports", "kalshi"];
     const out = await Promise.allSettled(
       names.map(async (name) => {
-        const r = await fetch("data/" + name + ".json", { cache: "no-cache" });
-        if (!r.ok) throw Error("Archive unavailable");
-        return r.json();
+        return DataClient.json("data/" + name + ".json");
       }),
     );
     data.monitor = out[0].status === "fulfilled" ? out[0].value : null;
