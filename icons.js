@@ -3,6 +3,7 @@ window.icon = (name) => {
     overview: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
     prices: "M3 17l5-6 4 3 8-10 M16 4h4v4",
     forecasts: "M3 18h18 M5 14l4-7 5 6 5-9",
+    predictions: "M3 18h18 M4 15l5-4 4 2 7-9 M16 4h4v4",
     demand: "M3 18h18 M4 13h4l3-8 4 12 3-6h3",
     weather: "M7 16a5 5 0 1 1 9-4 4 4 0 0 1 1 8H7a4 4 0 0 1 0-8 M8 2v2 M2 8h2",
     resources: "M4 7h15v12H4z M19 11h2v4h-2 M11 9l-3 5h4l-2 3",

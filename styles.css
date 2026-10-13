@@ -218,6 +218,7 @@ header span {
 }
 #content {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
 }
 .metrics {
@@ -250,7 +251,7 @@ header span {
   margin-left: 4px;
 }
 .metric .comparison {
-  color: #64707b;
+  color: var(--muted);
   font-size: 11px;
 }
 .good {
@@ -306,6 +307,7 @@ header span {
 .chart svg {
   width: 100%;
   display: block;
+  touch-action: pan-y;
 }
 .chart-grid {
   stroke: #263442;
@@ -313,7 +315,7 @@ header span {
 }
 .chart-axis {
   fill: #96a6b8;
-  font: 17px var(--mono);
+  font: 12px var(--mono);
 }
 .chart-line {
   fill: none;
@@ -335,7 +337,7 @@ header span {
   flex-wrap: wrap;
   margin: 6px 0;
   font-size: 11px;
-  color: #6b7683;
+  color: var(--muted);
 }
 .legend span {
   display: flex;
@@ -757,5 +759,145 @@ nav a[aria-current="page"] {
   th {
     padding: 8px 5px;
     font-size: 11px;
+  }
+}
+
+/* Flexible numbers and touch targets, without masking horizontal overflow. */
+main,
+header > div,
+#content > *,
+.controls > *,
+.metrics > *,
+.grid > *,
+.status-grid > * {
+  min-width: 0;
+}
+.controls > * {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.metric strong {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  overflow-wrap: anywhere;
+}
+.metric strong small {
+  margin: 0;
+}
+.summary-row strong,
+.status-grid strong,
+.comparison,
+#as-of,
+#history-status {
+  overflow-wrap: anywhere;
+}
+.panel-head {
+  flex-wrap: wrap;
+}
+.panel-head small {
+  max-width: 100%;
+}
+.legend span {
+  max-width: 100%;
+}
+.bar-head {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.bar-head strong {
+  white-space: nowrap;
+}
+.map-svg {
+  width: 100%;
+  max-width: 100%;
+}
+.map-controls {
+  min-width: 0;
+}
+.map-controls input {
+  min-width: 60px;
+}
+#tooltip {
+  max-width: min(380px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+footer {
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.chart:focus-within .crosshair {
+  display: block;
+}
+@media (max-width: 700px) {
+  header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .toolbar {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  button,
+  select,
+  input:not([type="range"]),
+  nav a {
+    min-height: 44px;
+  }
+  nav {
+    max-width: 100%;
+    flex-shrink: 0;
+  }
+  nav a {
+    flex-shrink: 0;
+  }
+  .chart {
+    min-height: 240px;
+  }
+  .chart-axis {
+    font-size: 12px;
+  }
+  .map-svg {
+    height: auto;
+    min-height: 280px;
+    max-height: 450px;
+  }
+  .map-controls input {
+    flex: 1 1 100%;
+  }
+  .map-controls output {
+    width: 100%;
+  }
+  .panel-head {
+    gap: 6px;
+  }
+  .controls > label,
+  .filters > label {
+    max-width: 100%;
+  }
+  .form-grid input,
+  .form-grid select {
+    font-size: 16px;
+  }
+}
+@media (max-width: 420px) {
+  .metrics,
+  .form-grid,
+  .status-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .toolbar select {
+    flex: 1 1 120px;
+    max-width: 100%;
+  }
+  .metric strong {
+    font-size: 26px;
+  }
+  .summary-row {
+    gap: 16px;
   }
 }

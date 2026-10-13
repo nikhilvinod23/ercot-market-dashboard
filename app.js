@@ -16,6 +16,7 @@
     resources: "Generation & storage",
     ancillary: "Ancillary services",
     fuels: "Fuel & resource prices",
+    predictions: "Demand prediction market",
     analysis: "Trading & battery",
     reports: "Reports & archive",
     health: "Data health",
@@ -65,6 +66,7 @@
       .join("");
     const c = data.current;
     const context = { panel, plot, table, day };
+    if (window.Predictions?.render(view, data, context)) return;
     if (Extensions.render(view, data, context)) return;
     if (view === "overview") {
       const prev = report("yesterdayPrices").filter(
@@ -276,7 +278,7 @@
       document.querySelector("#weather-mode").onchange = redraw;
       redraw();
     } else if (view === "resources") {
-      content.innerHTML = `<div class="filters"><label>Resources <select id="resource-filter"><option value="renewables">Wind & solar</option><option value="battery">Batteries</option><option value="all">All generation</option></select></label></div><div class="grid">${panel("Generation locations", '<div id="plants"></div>', "EIA inventory · Texas, not exclusively ERCOT", true)}${panel("Generation mix", plot("fuel"), "System output · MW")}${panel("Battery fleet dispatch", plot("storage"), "Measured aggregate · MW")}</div>`;
+      content.innerHTML = `<div class="filters"><label>Resources <select id="resource-filter"><option value="renewables">Wind & solar</option><option value="battery">Batteries</option><option value="all">All generation</option></select></label></div><div class="grid">${panel("Stacked generation", plot("fuel-stack"), "MW · negative storage shows charging · tap to inspect", true)}${panel("Generation locations", '<div id="plants"></div>', "EIA inventory · Texas, not exclusively ERCOT", true)}${panel("Generation mix", plot("fuel"), "System output · MW")}${panel("Battery fleet dispatch", plot("storage"), "Measured aggregate · MW")}</div>`;
       const draw = () => {
         const f = document.querySelector("#resource-filter").value;
         Maps.plants(
@@ -291,6 +293,17 @@
       document.querySelector("#resource-filter").onchange = draw;
       draw();
       fuelChart();
+      const fuels = series("fuel"),
+        keys = [...new Set(fuels.flatMap((r) => Object.keys(r)))].filter(
+          (k) => k !== "timestamp",
+        );
+      UI.chart(
+        "fuel-stack",
+        fuels,
+        keys.map((key) => ({ key, label: key })),
+        "MW",
+        { stacked: true },
+      );
       chart(
         "storage",
         series("storage"),
@@ -614,7 +627,10 @@
       "MW",
     );
   }
+  let loading = false;
   async function load(refresh = false) {
+    if (loading) return;
+    loading = true;
     const retained = Array.from(
       document.querySelectorAll(
         "#city,#weather-mode,#resource-filter,#archive-hub,#nws-city,#node-pick,#heat-rate,#gas-vom,#gas-hub,.map-controls input",
@@ -627,12 +643,22 @@
     const button = document.querySelector("#refresh");
     button.disabled = true;
     try {
+      if (!isLocal && data && !refresh) {
+        const status = await fetch("data/status.json", { cache: "no-cache" })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null);
+        if (status?.publishedAt === data.publishedAt) {
+          freshness();
+          return;
+        }
+      }
       const res = await fetch(
         isLocal
           ? refresh
             ? "/api/refresh"
             : "/api/market"
-          : "data/dashboard.json?" + Date.now(),
+          : "data/dashboard.json",
+        { cache: "no-cache" },
       );
       if (!res.ok) throw Error("Market service unavailable");
       data = await res.json();
@@ -688,6 +714,7 @@
         notice.textContent +=
           " This published snapshot is older than three hours.";
       }
+      freshness();
       if (
         view !== "analysis" ||
         refresh ||
@@ -709,6 +736,7 @@
       document.querySelector("#notice").textContent = err.message;
     } finally {
       button.disabled = false;
+      loading = false;
     }
   }
   document.querySelector("#day").onchange = (ev) => {
@@ -754,5 +782,25 @@
     URL.revokeObjectURL(url);
   };
   load();
-  setInterval(() => load(), 60000);
+  function freshness() {
+    if (!data) return;
+    const age =
+      (Date.now() - Date.parse(data.publishedAt || data.fetchedAt)) / 60000;
+    const notice = document.querySelector("#notice");
+    if (!isLocal && age > 75) {
+      notice.hidden = false;
+      notice.textContent = `Published data is ${n(age / 60, 1)} hours old. Scheduled publication targets 30 minutes; the scheduler can be delayed. See Data health for update status and the manual collector link.`;
+    }
+  }
+  setInterval(() => {
+    if (!document.hidden) load();
+  }, 60000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) load();
+  });
+  let resizeTimer;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(render, 200);
+  });
 })();

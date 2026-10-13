@@ -80,3 +80,11 @@ Work is validated on codex/ercot-api-validation. The consolidated publication so
 Canonical Codex project: ERCOT 10 year analysis.
 Canonical chat: Create ERCOT dashboard scaffold.
 See docs/ARCHITECTURE.md and docs/PROJECT.md.
+
+## Responsive charts, updates and prediction markets
+
+Generation includes a signed stacked chart: positive output stacks above zero and battery charging below it. Chart axes fit their containers; tap or use arrow keys for exact values. Narrow screens use wrapping metric cards, touch-sized controls, scrolling tables and responsive maps. Chart tables are built only when expanded.
+
+The public site checks a lightweight publication manifest each minute while visible and downloads the larger datasets only when publication changes. The collector targets minutes 23 and 53, but GitHub cron can be delayed. Data health shows publication/source times and a collector workflow link. See [operations and scaling](docs/OPERATIONS.md) for an independent scheduler, archival storage, database partitions, bounded payloads and history queries.
+
+Demand prediction market tracks public Kalshi KXTXERCOTPEAKD quotes, threshold volumes, open interest, quoted sizes, captured bid/ask trends and settled peaks. Quote performance begins when this collector starts observing and is measured only for subsequently settled markets. Contract-day parsing uses the rule text rather than the next-day ticker. The scenario calculator uses series fee metadata and executable best-ask size; it makes no trades. No account key is needed for the public data. Strict intraday tracking needs a continuously available collector and more frequent snapshots than the Pages publication cadence.

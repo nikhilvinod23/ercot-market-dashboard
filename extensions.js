@@ -43,10 +43,10 @@ window.Extensions = (() => {
       .map((h) => ({ ...h, timestamp: stamp(h.time) }));
   }
   async function load(data) {
-    const names = ["latest", "fuels", "reports"];
+    const names = ["latest", "fuels", "reports", "kalshi"];
     const out = await Promise.allSettled(
       names.map(async (name) => {
-        const r = await fetch("data/" + name + ".json?" + Date.now());
+        const r = await fetch("data/" + name + ".json", { cache: "no-cache" });
         if (!r.ok) throw Error("Archive unavailable");
         return r.json();
       }),
@@ -54,6 +54,7 @@ window.Extensions = (() => {
     data.monitor = out[0].status === "fulfilled" ? out[0].value : null;
     data.economics = out[1].status === "fulfilled" ? out[1].value : null;
     data.editions = out[2].status === "fulfilled" ? out[2].value : [];
+    data.predictions = out[3].status === "fulfilled" ? out[3].value : null;
     return data;
   }
   function events(list, table) {
@@ -676,6 +677,40 @@ window.Extensions = (() => {
       draw();
     }
     if (view === "health") {
+      document.querySelector("#content").insertAdjacentHTML(
+        "afterbegin",
+        panel(
+          "Publication and update cadence",
+          table(
+            ["Metric", "Latest"],
+            [
+              ["Publication", stamp(data.publishedAt || data.fetchedAt)],
+              [
+                "Latest market price source time",
+                data.current.prices?.timestamp || "—",
+              ],
+              [
+                "Collector target",
+                "Every 30 minutes on GitHub Pages; hourly local archive",
+              ],
+              [
+                "Browser refresh",
+                "Checks every minute while visible; fetches changed publications",
+              ],
+              [
+                "Scheduler reliability",
+                "Best effort · inspected scheduled runs had several-hour gaps",
+              ],
+              [
+                "Archive",
+                n(m.archive_records) +
+                  " observations; full history is outside browser payloads",
+              ],
+            ],
+          ) +
+            '<p><a class="download" href="https://github.com/nikhilvinod23/ercot-market-dashboard/actions/workflows/market-monitoring.yml" target="_blank" rel="noopener">Collector runs / Run workflow ↗</a></p><details><summary>Keeping publication consistent</summary><p>Reloading this static site checks the latest published files. For strict freshness, use an independent hosted scheduler or an always-on collector. A collector_tick repository dispatch can recover a stale edition without putting credentials in the browser.</p><a class="download" href="https://github.com/nikhilvinod23/ercot-market-dashboard/blob/ercot-market-monitoring/docs/OPERATIONS.md" target="_blank" rel="noopener">Operations and scaling guide ↗</a></details>',
+        ),
+      );
       append(
         panel(
           "Archive collection",
@@ -698,7 +733,7 @@ window.Extensions = (() => {
                   `<details><summary>${e(k.replaceAll("_", " "))}</summary><p>${e(v)}</p></details>`,
               )
               .join("") +
-              "<p>Python archives raw responses, observations and forecast vintages in SQLite. The public site uses the hourly collected snapshot; local mode refreshes market feeds every minute.</p>",
+              "<p>Python archives raw responses, observations and forecast vintages in SQLite. Public collection targets 30 minutes; local market feeds refresh every minute.</p>",
             "",
           ),
       );

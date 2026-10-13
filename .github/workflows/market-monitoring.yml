@@ -1,8 +1,13 @@
 name: Collect and publish ERCOT dashboard
 on:
   schedule:
-    - cron: '17 * * * *'
+    - cron: "23,53 * * * *"
   workflow_dispatch:
+  repository_dispatch:
+    types: [collector_tick]
+  push:
+    branches: [ercot-market-monitoring]
+    paths-ignore: ["docs/**", "README.md"]
 permissions:
   contents: write
   pages: write
@@ -26,10 +31,11 @@ jobs:
           path: state
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
+          cache: pip
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
       - name: Restore the consolidated observation archive
         run: |
           mkdir -p archive public/data runtime-data
@@ -38,6 +44,7 @@ jobs:
           if [ -d state/public/data ]; then cp -R state/public/data/. public/data/; fi
           if [ -d state/enrichment ]; then cp -R state/enrichment/. runtime-data/; fi
           if [ -f state/resource-mapping.json ]; then cp state/resource-mapping.json archive/resource-mapping.json; fi
+          if [ -f state/kalshi-markets.json ]; then cp state/kalshi-markets.json archive/kalshi-markets.json; fi
       - name: Verify market calculations
         run: |
           pip install -r requirements.txt
@@ -45,6 +52,7 @@ jobs:
           node --test analytics.test.js
           node --check app.js
           node --check extensions.js
+          node --check predictions.js
       - name: Collect official observations, forecasts, maps and fuel prices
         env:
           ERCOT_SUBSCRIPTION_KEY: ${{ secrets.ERCOT_SUBSCRIPTION_KEY }}
@@ -62,6 +70,7 @@ jobs:
           cp -R public/data/. state/public/data/
           cp -R runtime-data/. state/enrichment/
           if [ -f archive/resource-mapping.json ]; then cp archive/resource-mapping.json state/resource-mapping.json; fi
+          if [ -f archive/kalshi-markets.json ]; then cp archive/kalshi-markets.json state/kalshi-markets.json; fi
           python - <<'PY'
           from pathlib import Path
           from datetime import datetime,timedelta,timezone
@@ -85,3 +94,13 @@ jobs:
           path: dist
       - uses: actions/deploy-pages@v4
         id: deploy
+      - name: Retain failed-run data for recovery
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collector-recovery-${{ github.run_id }}
+          path: |
+            archive/market.sqlite
+            archive/kalshi-markets.json
+            public/data/
+          retention-days: 7

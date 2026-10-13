@@ -7,6 +7,7 @@ for (const name of [
   "styles.css",
   "app.js",
   "extensions.js",
+  "predictions.js",
   "icons.js",
   "charts.js",
   "maps.js",
@@ -28,4 +29,12 @@ const dashboard = JSON.parse(
 );
 if (!dashboard.current?.prices || !dashboard.geometry?.shapes?.length)
   throw Error("A complete market snapshot is required for publication.");
+fs.writeFileSync(
+  path.join(out, "data", "status.json"),
+  JSON.stringify({
+    publishedAt: dashboard.publishedAt,
+    latestPrice: dashboard.current.prices.timestamp,
+    targetCadenceMinutes: 30,
+  }),
+);
 console.log("One dashboard packaged in dist/.");

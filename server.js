@@ -444,6 +444,7 @@ function serveStatic(req, res, pathname) {
       "maps.js",
       "analytics.js",
       "extensions.js",
+      "predictions.js",
       "icons.js",
     ].includes(relative)
   ) {

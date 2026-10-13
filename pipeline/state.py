@@ -25,12 +25,19 @@ def restore(state, archive):
 
 def save(state, archive):
     db=sqlite3.connect(archive/'market.sqlite')
+    manifest_path=state/'ledger-counts.json'
+    previous=json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    manifest={'schema_version':2}
     for table in ['observations','collections']:
         dest=state/table;dest.mkdir(parents=True,exist_ok=True)
-        days=[r[0] for r in db.execute(f'SELECT DISTINCT substr(collected_at,1,10) FROM {table}')]
-        for day in days:
+        days=list(db.execute(f'SELECT substr(collected_at,1,10),COUNT(*) FROM {table} GROUP BY substr(collected_at,1,10)'))
+        for day,count in days:
+            key=table+':'+day;manifest[key]=count
+            # Records are append-only. Unchanged partitions need no reads or rewrites.
+            if previous.get('schema_version')==2 and previous.get(key)==count and (dest/(day+'-0000.jsonl')).exists():continue
             # Small text shards avoid GitHub's per-file limit during a historical backfill.
-            cursor=db.execute(f'SELECT * FROM {table} WHERE collected_at>=? AND collected_at<? ORDER BY id',(day,day+'Z'))
+            # Stable collection order keeps new hourly records in the final shard.
+            cursor=db.execute(f'SELECT * FROM {table} WHERE collected_at>=? AND collected_at<? ORDER BY collected_at,id',(day,day+'Z'))
             names=set();index=0
             while True:
                 batch=cursor.fetchmany(25000)
@@ -44,6 +51,7 @@ def save(state, archive):
             for p in dest.glob(day+'-*.jsonl'):
                 if p.name not in names:p.unlink()
     db.close()
+    manifest_path.write_text(json.dumps(manifest,sort_keys=True),encoding='utf-8')
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('action',choices=['restore','save']);p.add_argument('--state',type=Path,default=Path('state'));p.add_argument('--archive',type=Path,default=Path('archive'));args=p.parse_args()

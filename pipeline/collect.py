@@ -70,7 +70,7 @@ def load_env(path):
 class HTTP:
     def __init__(self): self.last_ercot = 0.0
     def get(self, url, headers=None, data=None):
-        if urllib.parse.urlparse(url).hostname not in {'api.ercot.com', 'www.ercot.com', 'api.weather.gov', 'ercotb2c.b2clogin.com'}:
+        if urllib.parse.urlparse(url).hostname not in {'api.ercot.com', 'www.ercot.com', 'api.weather.gov', 'ercotb2c.b2clogin.com', 'external-api.kalshi.com'}:
             raise ValueError('Unexpected source host')
         for attempt in range(3):
             if 'api.ercot.com' in url:
@@ -110,6 +110,8 @@ CREATE TABLE IF NOT EXISTS observations (
  published_at TEXT NOT NULL, collected_at TEXT NOT NULL, source TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS observations_lookup ON observations(metric, location, target_end, issued_at);
+CREATE INDEX IF NOT EXISTS observations_target ON observations(target_end);
+CREATE INDEX IF NOT EXISTS observations_collected ON observations(collected_at);
 CREATE INDEX IF NOT EXISTS observations_actual_revision ON observations(dataset,metric,location,target_end,interval_minutes,source,collected_at,published_at);
 CREATE TABLE IF NOT EXISTS collections (id TEXT PRIMARY KEY, collected_at TEXT NOT NULL, source TEXT NOT NULL, status TEXT NOT NULL, records INTEGER NOT NULL);
 CREATE VIEW IF NOT EXISTS prices AS SELECT * FROM observations WHERE dataset='prices';
@@ -321,6 +323,8 @@ def main():
         run(name,'https://www.eia.gov/dnav/ng/hist/'+code.lower()+'.htm',lambda n=name:collect_benchmark(archive,n))
     run('Resource-node prices','https://www.ercot.com/mp/data-products/data-product-details?id=NP3-966-ER',lambda:collect_resource_prices(http,require_headers(),archive,today,args.history_days))
     run('Maps and ancillary data','https://www.ercot.com/gridmktinfo/dashboards',lambda:collect_enrichment(archive))
+    from pipeline.kalshi import collect as collect_predictions
+    run('ERCOT prediction market','https://kalshi.com/markets/kxtxercotpeakd/texas-ercot-peak-electricity-demand',lambda:collect_predictions(http,archive))
     archive.commit()
     from pipeline.publish import publish
     publish(archive.db,statuses,now,ROOT/'public'/'data')
