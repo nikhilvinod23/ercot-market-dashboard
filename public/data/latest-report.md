@@ -1,14 +1,14 @@
 # ERCOT Market Review
 
-Published 2026-10-30T06:01:17Z. All times in charts are Central Time.
+Published 2026-10-30T13:11:16Z. All times in charts are Central Time.
 
 ## Daily
 
-Complete Houston RT price hours: 12. Average RT: 37.81 $/MWh. Peak observed load: 59702.77 MW. Net load error MAE: 1845.86 MW across 21 matched hours. Events: 6.
+Complete Houston RT price hours: 12. Average RT: 38.01 $/MWh. Peak observed load: 59702.77 MW. Net load error MAE: 1709.32 MW across 23 matched hours. Events: 8.
 
 ## Weekly
 
-Complete Houston RT price hours: 156. Average RT: 32.47 $/MWh. Peak observed load: 63943.77 MW. Net load error MAE: 1348.79 MW across 165 matched hours. Events: 37.
+Complete Houston RT price hours: 154. Average RT: 33.02 $/MWh. Peak observed load: 63943.77 MW. Net load error MAE: 1336.81 MW across 167 matched hours. Events: 39.
 
 ## Methodology
 
