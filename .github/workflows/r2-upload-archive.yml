@@ -1,0 +1,63 @@
+name: Upload archive to R2
+on:
+  push:
+    branches: [codex/r2-connection-check]
+    paths: [.github/workflows/r2-upload-archive.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r2-archive-writer
+  cancel-in-progress: false
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: market-data
+          path: state
+      - run: python -m pip install boto3
+      - name: Upload compressed archive within storage budget
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          python - <<'PY'
+          import gzip, hashlib, os, pathlib
+          import boto3
+          from botocore.config import Config
+          s3=boto3.client("s3",endpoint_url=f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],region_name="auto",config=Config(retries={"max_attempts":3}))
+          bucket=os.environ["R2_BUCKET"]
+          ceiling=9_000_000_000
+          sizes={}
+          for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket):
+              sizes.update({o["Key"]:o["Size"] for o in page.get("Contents",[])})
+          used=sum(sizes.values())
+          uploaded=skipped=0
+          root=pathlib.Path("state")
+          paths=[]
+          for folder in ["observations","collections","raw","enrichment","public"]:
+              paths.extend(p for p in (root/folder).rglob("*") if p.is_file())
+          paths.extend(root/p for p in ["resource-mapping.json","kalshi-markets.json","ledger-counts.json"] if (root/p).exists())
+          for path in sorted(paths):
+              raw=path.read_bytes()
+              digest=hashlib.sha256(raw).hexdigest()
+              body=raw if path.suffix==".gz" else gzip.compress(raw,compresslevel=9,mtime=0)
+              key="ercot-archive/"+path.relative_to(root).as_posix()+"/"+digest+(".gz" if path.suffix!=".gz" else "")
+              if key in sizes:
+                  skipped+=1
+                  continue
+              if used+len(body)>=ceiling:
+                  print("::warning::R2 9 GB write ceiling reached. Remaining data stays in GitHub; 1 GB reserve preserved.")
+                  break
+              s3.put_object(Bucket=bucket,Key=key,Body=body,Metadata={"source-sha256":digest})
+              used+=len(body)
+              uploaded+=1
+          summary=f"Uploaded {uploaded} archive objects; retained {skipped} existing objects. Bucket usage: {used:,} bytes. Write ceiling: {ceiling:,} bytes. GitHub source archive retained."
+          print(summary)
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:f.write(summary+"\n")
+          PY
