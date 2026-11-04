@@ -29,7 +29,7 @@ jobs:
           echo "All four required secret names are available to this workflow."
       - name: Install S3 client
         run: python -m pip install --disable-pip-version-check boto3
-      - name: Verify read-only access to the selected R2 bucket
+      - name: Verify write, read, and delete permissions with a disposable canary
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -38,6 +38,7 @@ jobs:
         run: |
           python - <<'PY'
           import os
+          import uuid
           import boto3
           from botocore.config import Config
           from botocore.exceptions import BotoCoreError, ClientError
@@ -50,13 +51,35 @@ jobs:
               region_name="auto",
               config=Config(signature_version="s3v4", retries={"max_attempts": 2}),
           )
+          bucket = os.environ["R2_BUCKET"]
+          key = "connection-check/" + str(uuid.uuid4()) + ".txt"
+          payload = b"ERCOT R2 disposable permission check"
+          wrote = False
           try:
-              result = client.list_objects_v2(
-                  Bucket=os.environ["R2_BUCKET"], MaxKeys=1
-              )
+              client.put_object(Bucket=bucket, Key=key, Body=payload)
+              wrote = True
+              result = client.get_object(Bucket=bucket, Key=key)
+              with result["Body"] as body:
+                  if body.read() != payload:
+                      raise SystemExit("R2 canary read-back did not match.")
+              print("R2 canary upload and read-back succeeded.")
           except (BotoCoreError, ClientError) as exc:
               code = getattr(exc, "response", {}).get("Error", {}).get("Code", type(exc).__name__)
-              raise SystemExit(f"R2 read-only check failed ({code}); values were not printed.")
-          print("R2 credentials accepted; bucket is accessible for read-only listing.")
-          print(f"Bucket contains objects: {'yes' if result.get('KeyCount', 0) else 'no'}")
+              raise SystemExit(f"R2 canary check failed ({code}); credential values were not printed.")
+          finally:
+              if wrote:
+                  try:
+                      client.delete_object(Bucket=bucket, Key=key)
+                  except (BotoCoreError, ClientError) as exc:
+                      code = getattr(exc, "response", {}).get("Error", {}).get("Code", type(exc).__name__)
+                      raise SystemExit(f"R2 canary could not be deleted ({code}); remove {key} from the bucket manually.")
+          try:
+              client.head_object(Bucket=bucket, Key=key)
+          except ClientError as exc:
+              if exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode") == 404:
+                  print("R2 canary deletion verified; bucket is clean.")
+              else:
+                  raise SystemExit("Could not verify R2 canary deletion.")
+          else:
+              raise SystemExit("R2 canary still exists; remove it before continuing.")
           PY
