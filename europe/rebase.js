@@ -5,7 +5,7 @@ const api='https://grid.rebase.energy/api/v1';
 const cached=new Map();
 const key=()=>process.env.REBASE_API_KEY?.trim();
 export async function rebase(path,body,apiKey=key()){
- const response=await fetch(api+path,{redirect:'error',signal:AbortSignal.timeout(65000),
+ const response=await fetch(api+path,{redirect:'manual',signal:AbortSignal.timeout(65000),
   headers:{...(apiKey?{'X-API-Key':apiKey}:{}),...(body?{'Content-Type':'application/json'}:{})},
   method:body?'POST':'GET',body:body?JSON.stringify(body):undefined});
  if(!response.ok) throw new Error('Rebase HTTP '+response.status+' at '+path+

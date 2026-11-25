@@ -49,7 +49,7 @@ fs.writeFileSync(europePage, fs.readFileSync(europePage, "utf8")
 fs.writeFileSync(path.join(out, "index.html"), fs.readFileSync(path.join(__dirname, "home.html"), "utf8")
   .replace('href="./index.html"', 'href="./ercot.html"')
   .replace('href="http://127.0.0.1:4173/"', 'href="./europe/"'));
-for (const asset of ["home.css", "ercot-preview.png", "europe-preview.png"])
+for (const asset of ["home.css", "ercot-preview.png", "europe-geographic-map.png"])
   fs.copyFileSync(path.join(__dirname, asset), path.join(out, asset));
 const dashboard = JSON.parse(
   fs.readFileSync(path.join(out, "data", "dashboard.json")),
