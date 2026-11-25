@@ -95,6 +95,24 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
+      - name: Wait for GitHub to index the Pages artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          endpoint="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=github-pages"
+          for attempt in {1..24}; do
+            if visible=$(gh api "$endpoint" --jq '[.artifacts[] | select(.name == "github-pages" and .expired == false)] | length'); then
+              if [ "$visible" -eq 1 ]; then exit 0; fi
+              if [ "$visible" -gt 1 ]; then
+                echo "::error::More than one active github-pages artifact exists for this run."
+                exit 1
+              fi
+            fi
+            echo "Waiting for the github-pages artifact ($attempt/24)."
+            sleep 5
+          done
+          echo "::error::GitHub did not list the uploaded github-pages artifact within two minutes."
+          exit 1
       - uses: actions/deploy-pages@v4
         id: deploy
       - name: Retain failed-run data for recovery
