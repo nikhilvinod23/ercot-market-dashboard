@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>European Power Markets</title><link rel="stylesheet" href="./styles.css"></head>
+<body>
+<header class="top">
+ <div class="brand"><span class="brand-icon" aria-hidden="true">ϟ</span><div><h1>European Power Markets</h1><div class="sub">Bidding zone monitor</div></div></div>
+ <div class="controls"><a class="market-home" href="http://127.0.0.1:8000/home.html">Dashboard home</a><label>Data <select id="source"><option value="rebase">Rebase Grid</option><option value="demo">Synthetic demo</option></select></label>
+ <label>View <select id="mode"><option value="live">Latest</option><option value="historical">Historical</option></select></label>
+ <button id="refresh">↻ Refresh</button></div>
+ <div class="status" role="status"><div id="status">Connecting to Rebase…</div><small id="timestamp"></small></div>
+</header>
+<main>
+ <section class="map-shell" aria-label="Market map">
+  <div id="map"></div>
+  <details class="layers" open><summary>Map layers</summary>
+   <div class="layer-body"><label><input type="checkbox" data-layer="price" checked> Day-ahead price</label>
+   <label><input type="checkbox" data-layer="generation" checked> Generation mix</label>
+   <label><input type="checkbox" data-layer="demand" checked> Actual demand</label>
+   <label><input type="checkbox" data-layer="flow"> Physical flows</label>
+   <label class="filter"><input type="checkbox" data-layer="selectedOnly"> Selected zone links</label>
+   <label class="zone-select">Surface color<select id="surface-color"><option value="auto">Automatic</option><option value="price">Day-ahead price</option><option value="generation">Generation mix</option><option value="demand">Actual demand</option><option value="none">Neutral</option></select></label>
+   <label><input id="group-fuels" type="checkbox" data-layer="groupFuels"> Group generation by fuel type</label>
+   <label class="zone-select">Generation style<select id="mix-style"><option value="pie">Pie</option><option value="stacked">Stacked</option></select></label>
+   <label class="zone-select">Height<select id="surface-height"><option value="auto">Automatic</option><option value="price">Absolute day-ahead price</option><option value="generation">Total generation</option><option value="demand">Actual demand</option><option value="none">Flat</option></select></label>
+   <label class="zone-select">Find a zone<select id="zone"><option value="">Europe overview</option></select></label></div>
+  </details>
+  <div class="legend" id="map-legend"><div id="price-legend"><span>Day-ahead · EUR/MWh</span><i></i><div class="legend-scale"><span>−80</span><span>0</span><span>50</span><span>100</span><span>200+</span></div><small id="price-height">Height uses absolute price</small></div><div id="demand-legend" hidden><span>Actual demand · GW</span><i></i><div class="legend-scale"><span>0</span><span>35</span><span>70+</span></div></div></div>
+  <div class="nav" aria-label="Map camera">
+   <button id="plus" aria-label="Zoom in">+</button><button id="minus" aria-label="Zoom out">−</button>
+   <button id="reset" aria-label="Reset map">&#8634;</button>
+  </div>
+  <div class="map-foot"><span id="geometry">Fetching zone boundaries…</span><span>Drag to pan</span></div>
+ </section>
+ <aside><details open id="details"><summary>Market detail</summary><div id="panel"></div></details></aside>
+</main>
+<footer>
+ <div class="timeline"><label for="delivery">Delivery time · UTC</label><button id="back" aria-label="One hour earlier">‹</button>
+ <input type="datetime-local" id="delivery"><button id="forward" aria-label="One hour later">›</button>
+ <button id="apply">Go to time</button><span id="local"></span></div>
+ <div class="credits"><a href="https://grid.rebase.energy/" target="_blank" rel="noreferrer">Rebase Grid API</a> ·
+ <a href="https://transparency.entsoe.eu/" target="_blank" rel="noreferrer">ENTSO-E Transparency Platform</a> ·
+ <a href="https://github.com/fboerman/entsoe-py/tree/master/entsoe/geo" target="_blank" rel="noreferrer">Bidding-zone boundaries</a> · <a href="https://github.com/johan/world.geo.json" target="_blank" rel="noreferrer">Country boundary fallback</a>
+ <span id="attribution"></span></div>
+</footer>
+<script type="module" src="./app.js"></script></body></html>

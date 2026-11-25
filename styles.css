@@ -901,3 +901,5 @@ footer {
     gap: 16px;
   }
 }
+
+.market-home{display:inline-flex;align-items:center;padding:.5rem .75rem;border:1px solid currentColor;border-radius:.4rem;white-space:nowrap;text-decoration:none}

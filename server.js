@@ -438,6 +438,8 @@ function serveStatic(req, res, pathname) {
     !publicData &&
     ![
       "index.html",
+      "home.html",
+      "home.css",
       "app.js",
       "styles.css",
       "charts.js",

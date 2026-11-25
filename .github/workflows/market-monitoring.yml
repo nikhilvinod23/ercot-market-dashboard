@@ -60,7 +60,9 @@ jobs:
           ERCOT_PASSWORD: ${{ secrets.ERCOT_PASSWORD }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python -m pipeline.collect --history-days 7
-      - name: Package the single dashboard
+      - name: Package both dashboards
+        env:
+          EUROPE_API_URL: ${{ vars.EUROPE_API_URL }}
         run: node build.js
       - name: Preserve observation history and map captures
         run: |
