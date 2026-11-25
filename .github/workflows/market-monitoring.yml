@@ -9,6 +9,7 @@ on:
     branches: [ercot-market-monitoring]
     paths-ignore: ["docs/**", "README.md"]
 permissions:
+  actions: read
   contents: write
   pages: write
   id-token: write
@@ -91,7 +92,7 @@ jobs:
           git add -A
           if ! git diff --cached --quiet; then git commit -m 'Archive consolidated ERCOT market observations'; git push origin HEAD:market-data; fi
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
       - uses: actions/deploy-pages@v4
