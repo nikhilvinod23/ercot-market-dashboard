@@ -440,6 +440,8 @@ function serveStatic(req, res, pathname) {
       "index.html",
       "home.html",
       "home.css",
+      "ercot-preview.png",
+      "europe-preview.png",
       "app.js",
       "styles.css",
       "charts.js",

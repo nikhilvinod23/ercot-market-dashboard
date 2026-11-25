@@ -1,12 +1,12 @@
 :root {
   color-scheme: dark;
   --ink: #dce3ea;
-  --muted: #94a3b5;
-  --line: #263442;
+  --muted: #b1b1b1;
+  --line: #303030;
   --blue: #88b6e4;
   --green: #79c9b5;
   --red: #d49aa9;
-  --bg: #10171f;
+  --bg: #000;
   --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 * {
@@ -57,7 +57,7 @@ details p {
 }
 input {
   color: var(--ink);
-  background: #121c26;
+  background: #101010;
   border: 1px solid var(--line);
   padding: 7px 9px;
   border-radius: 3px;
@@ -66,7 +66,7 @@ input {
   filter: brightness(0.65) saturate(0.65);
 }
 .selected-detail {
-  background: #17232e !important;
+  background: #101010 !important;
 }
 .map-svg text {
   fill: #dce3ea;
@@ -102,9 +102,9 @@ select {
 }
 button,
 select {
-  border: 1px solid #334454;
+  border: 1px solid #343434;
   border-radius: 4px;
-  background: #17212b;
+  background: #101010;
   padding: 7px 11px;
   color: var(--ink);
 }
@@ -112,7 +112,7 @@ button {
   cursor: pointer;
 }
 button:hover {
-  background: #202f3b;
+  background: #1b1b1b;
 }
 button:active {
   transform: translateY(1px);
@@ -132,7 +132,7 @@ aside {
   width: 215px;
   position: fixed;
   inset: 0 auto 0 0;
-  background: #17212b;
+  background: #101010;
   border-right: 1px solid var(--line);
   padding: 29px 18px;
   display: flex;
@@ -169,7 +169,7 @@ nav a {
   font-size: 13px;
 }
 nav a.active {
-  background: #22303d;
+  background: #1b1b1b;
   color: #88b6e4;
   font-weight: 600;
 }
@@ -227,7 +227,7 @@ header span {
   gap: 14px;
 }
 .metric {
-  background: #17212b;
+  background: #101010;
   border: 1px solid var(--line);
   padding: 18px 19px;
   border-radius: 5px;
@@ -270,7 +270,7 @@ header span {
 }
 .panel {
   min-width: 0;
-  background: #17212b;
+  background: #101010;
   border: 1px solid var(--line);
   border-radius: 5px;
   padding: 21px;
@@ -357,7 +357,7 @@ header span {
   padding: 40px 20px;
   text-align: center;
   color: #828b96;
-  background: #131e28;
+  background: #101010;
   font-size: 12px;
   min-height: 150px;
   display: grid;
@@ -376,7 +376,7 @@ th {
   text-align: left;
   font-weight: 500;
   color: #77818d;
-  background: #192530;
+  background: #101010;
   position: sticky;
   top: 0;
   z-index: 1;
@@ -399,7 +399,7 @@ td small {
 }
 .tag {
   font-size: 10px;
-  background: #243542;
+  background: #1b1b1b;
   color: #9bacc0;
   padding: 3px 7px;
   border-radius: 3px;
@@ -414,7 +414,7 @@ td small {
   font-size: 12px;
 }
 .bar-track {
-  background: #263b48;
+  background: #1b1b1b;
   height: 7px;
   margin-top: 5px;
 }
@@ -427,7 +427,7 @@ td small {
   z-index: 100;
   pointer-events: none;
   display: none;
-  background: #17212b;
+  background: #101010;
   border: 1px solid #334454;
   border-radius: 4px;
   box-shadow: 0 3px 12px #0001;
@@ -453,7 +453,7 @@ td small {
 .map-shell {
   position: relative;
   min-height: 395px;
-  background: #121c26;
+  background: #101010;
   border: 1px solid #263442;
 }
 .map-svg {
@@ -528,7 +528,7 @@ input[type="range"] {
 }
 .selected-detail {
   padding: 12px 15px;
-  background: #17232e;
+  background: #101010;
   border-top: 1px solid var(--line);
   font-size: 12px;
 }
@@ -572,7 +572,7 @@ input[type="range"] {
   border: 1px solid #334454;
   padding: 7px;
   border-radius: 3px;
-  background: #17212b;
+  background: #101010;
   color: var(--ink);
 }
 .form-action {
@@ -652,7 +652,7 @@ footer button {
   color: var(--muted);
 }
 nav a[aria-current="page"] {
-  background: #22303d;
+  background: #1b1b1b;
   color: #88b6e4;
   font-weight: 600;
 }

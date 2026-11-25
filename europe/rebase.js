@@ -4,11 +4,11 @@ import {snapshot} from './market.js';
 const api='https://grid.rebase.energy/api/v1';
 const cached=new Map();
 const key=()=>process.env.REBASE_API_KEY?.trim();
-export async function rebase(path,body){
+export async function rebase(path,body,apiKey=key()){
  const response=await fetch(api+path,{redirect:'error',signal:AbortSignal.timeout(65000),
-  headers:{...(key()?{'X-API-Key':key()}:{}),...(body?{'Content-Type':'application/json'}:{})},
+  headers:{...(apiKey?{'X-API-Key':apiKey}:{}),...(body?{'Content-Type':'application/json'}:{})},
   method:body?'POST':'GET',body:body?JSON.stringify(body):undefined});
- if(!response.ok) throw new Error('Rebase HTTP '+response.status+
+ if(!response.ok) throw new Error('Rebase HTTP '+response.status+' at '+path+
   (response.headers.has('retry-after')?' · Retry after '+response.headers.get('retry-after')+' seconds':''));
  return response.json();
 }
@@ -24,11 +24,11 @@ function cache(id,ttl,compute){
  for(const [id,v] of cached) if(v.until<Date.now()) cached.delete(id);
  return entry.promise;
 }
-export const entities=()=>cache('entities',hour,()=>rebase('/entities'));
+export const entities=(apiKey=key())=>cache('entities:'+Boolean(apiKey),hour,()=>rebase('/entities',undefined,apiKey));
 export function flatten(items){
  return items.flatMap(item=>[item,...flatten(item.children??[])]);
 }
-export const list=id=>cache('catalog:'+id,hour,()=>rebase('/entities/'+encodeURIComponent(id)+'/timeseries'));
+export const list=(id,apiKey=key())=>cache('catalog:'+id+':'+Boolean(apiKey),hour,()=>rebase('/entities/'+encodeURIComponent(id)+'/timeseries',undefined,apiKey));
 function preferred(items){
  const byName=new Map();
  for(const item of items){
@@ -36,15 +36,15 @@ function preferred(items){
  }
  return [...byName.values()];
 }
-export async function discover(wanted,partition){
- const discovery=flatten((await entities()).entities);
+export async function discover(wanted,partition,apiKey=key()){
+ const discovery=flatten((await entities(apiKey)).entities);
  const marketIds=discovery.filter(e=>e.kind==='price_zone' && e.id in zones).map(e=>e.id);
- const zoneIds=key()?marketIds.filter((_,index)=>partition===undefined||index%3===partition):marketIds.filter(id=>id===wanted);
+ const zoneIds=apiKey?marketIds.filter((_,index)=>partition===undefined||index%3===partition):marketIds.filter(id=>id===wanted);
  const catalog={}, errors=[];
  // Small batches bound the burst of catalog requests.
  for(let offset=0;offset<zoneIds.length;offset+=5){
   const group=zoneIds.slice(offset,offset+5);
-  const answers=await Promise.allSettled(group.map(list));
+  const answers=await Promise.allSettled(group.map(id=>list(id,apiKey)));
   answers.forEach((answer,i)=>{
    const id=group[i];
    if(answer.status==='rejected'){ errors.push(id+': '+answer.reason.message); return; }
@@ -64,12 +64,12 @@ export async function discover(wanted,partition){
  }
  return {catalog,errors,marketIds};
 }
-async function batch(series,start,end){
+async function batch(series,start,end,apiKey){
  const results=[];
  const body={start,end,series};
  let cursor;
  do {
-  const page=await rebase('/timeseries/values',cursor?{...body,cursor}:body);
+  const page=await rebase('/timeseries/values',cursor?{...body,cursor}:body,apiKey);
   if(!Array.isArray(page.series)) throw new Error('Unexpected Rebase values response');
   results.push(...page.series);
   if(cursor && cursor===page.next) throw new Error('Rebase returned a repeated cursor');
@@ -95,18 +95,26 @@ async function fxRates(series,start,end){
  }
  return result;
 }
-export async function dashboard(time,live,zone,partition){
+export async function dashboard(time,live,zone,partition,apiKey=key(),includeHistory=true){
  const requestTime=live?Math.floor(time/(5*minute))*5*minute:time;
- return cache('dashboard:'+requestTime+':'+live+':'+(key()?'all':zone)+':'+partition,live?5*minute:hour,async()=>{
-  const {catalog,errors,marketIds}=await discover(zone,partition);
+ return cache('dashboard:'+requestTime+':'+live+':'+(apiKey&&partition===undefined?'all':zone)+':'+partition+':'+includeHistory,live?5*minute:hour,async()=>{
+  const {catalog,errors,marketIds}=await discover(zone,partition,apiKey);
   if(!Object.keys(catalog).length) throw new Error(errors[0]??'No supported Rebase series discovered');
   let request=Object.values(catalog).flat();
-  if(!key() && request.length>20){
-   errors.push('Public access reads the selected zone, up to 20 series per minute. Add your key for all-zone coverage.');
-   request=request.slice(0,20);
+  if(!apiKey && request.length>5){
+   errors.push('Public access reads the selected zone, up to 5 series per bulk request. Add your key for all-zone coverage.');
+   request=request.slice(0,5);
   }
   const from=requestTime-25*hour;
-  const series=await batch(request,new Date(from).toISOString(),new Date(requestTime+minute).toISOString());
+  const end=new Date(requestTime+minute).toISOString();
+  const history=partition===undefined||!includeHistory?[]:request.filter(({entity})=>
+   entity===zone||(entity.startsWith('border:')&&entity.slice(7).split('~').includes(zone)));
+  const historicEntries=new Set(history);
+  const mapSeries=request.filter(item=>!historicEntries.has(item));
+  const series=[];
+  if(mapSeries.length) series.push(...await batch(mapSeries,
+   new Date(partition===undefined?from:requestTime-4*hour).toISOString(),end,apiKey));
+  if(history.length) series.push(...await batch(history,new Date(from).toISOString(),end,apiKey));
   const rejected=series.filter(s=>s.error);
   if(rejected.length) errors.push(rejected.length+' series returned upstream errors.');
   const missing=request.length-series.length;

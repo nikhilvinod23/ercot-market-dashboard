@@ -144,6 +144,29 @@ jobs:
           exit 1
       - uses: actions/deploy-pages@v4
         id: deploy
+      - name: Check the public Rebase connection
+        if: env.PUBLISH_ONLY == 'true'
+        continue-on-error: true
+        env:
+          EUROPE_API_URL: ${{ vars.EUROPE_API_URL }}
+        run: |
+          node --input-type=module <<'JS'
+          const endpoint = process.env.EUROPE_API_URL || "https://european-power-dashboard-api.nikhilvinod23.workers.dev/api/dashboard";
+          const responses = await Promise.allSettled([0,1,2].map(async partition => {
+            const url = new URL(endpoint);
+            url.search = new URLSearchParams({ mode: "rebase", zone: "DE-LU", partition });
+            const response = await fetch(url, { headers: { Origin: "https://nikhilvinod23.github.io" }, signal: AbortSignal.timeout(70000) });
+            const data = await response.json();
+            if (!response.ok) throw Error(`Partition ${partition}: HTTP ${response.status}. ${data.error ?? ""}`);
+            const zones = Object.keys(data.zones ?? {}).length;
+            if (!zones) throw Error(`Partition ${partition}: no market zones received.`);
+            console.log(`Partition ${partition}: ${zones} market zones.`);
+          }));
+          for (const result of responses) if (result.status === "rejected") {
+            console.error(result.reason.message);
+            process.exitCode = 1;
+          }
+          JS
       - name: Retain failed-run data for recovery
         if: failure() && env.PUBLISH_ONLY != 'true'
         uses: actions/upload-artifact@v4

@@ -16,13 +16,13 @@ async function preserve(event,env){
  const time=Math.floor(event.scheduledTime/hour)*hour;
  const key=archiveKey(time,partition);
  if(await env.MARKET_ARCHIVE.head(key)) return;
- const data=await dashboard(time,true,'DE-LU',partition);
+ const data=await dashboard(time,true,'DE-LU',partition,env.REBASE_API_KEY.trim(),false);
  const series=data.series.filter(item=>!item.error).map(item=>({...item,
   points:item.points?.filter(point=>Date.parse(point.valid_time)>time-2*hour)
  }));
  const record={...data,series,collectedAt:new Date().toISOString()};
  const compressed=new Blob([JSON.stringify(record)]).stream().pipeThrough(new CompressionStream('gzip'));
- await env.MARKET_ARCHIVE.put(key,compressed,{
+ await env.MARKET_ARCHIVE.put(key,await new Response(compressed).arrayBuffer(),{
   onlyIf:{etagDoesNotMatch:'*'},
   httpMetadata:{contentType:'application/json',contentEncoding:'gzip'}
  });
@@ -46,14 +46,18 @@ export default {
   if(!Object.hasOwn(zones,zone)||!['0','1','2'].includes(partition)||!Number.isFinite(time)||time>Date.now()+24*hour)
    return reject('Invalid market zone or delivery time.',400);
   try{
-   const data=await dashboard(time,!at,zone,Number(partition));
+   const data=await dashboard(time,!at,zone,Number(partition),env.REBASE_API_KEY.trim());
    const include=id=>id===zone||(id.startsWith('border:')&&id.slice(7).split('~').includes(zone));
    return Response.json({...data,
     series:data.series.filter(series=>include(series.entity)),
     catalog:Object.fromEntries(Object.entries(data.catalog).filter(([id])=>include(id)))
    },{headers});
-  }catch{
-   return reject('Rebase data could not be retrieved. Try again shortly.',502);
+  }catch(error){
+   console.error('Rebase dashboard request failed',{partition,zone,name:error.name,message:error.message});
+   const status=/^Rebase HTTP (\d{3})/.exec(error.message)?.[1];
+   const detail=status?' Rebase returned HTTP '+status+'.':
+    error.name==='TimeoutError'?' The upstream request timed out.':'';
+   return reject('Rebase data could not be retrieved.'+detail,502);
   }
  }
 };

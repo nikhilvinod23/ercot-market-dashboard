@@ -46,11 +46,15 @@ async function loadDashboard(query,signal){
   return payload;
  }
  if(!publishedBuild) return read('/api/dashboard?'+query);
- const partitions=await Promise.all([0,1,2].map(partition=>{
+ const results=await Promise.allSettled([0,1,2].map(partition=>{
   const url=new URL(publishedApi);
   url.search=new URLSearchParams([...query,['partition',partition]]).toString();
   return read(url);
  }));
+ if(signal.aborted) throw signal.reason;
+ const partitions=results.filter(result=>result.status==='fulfilled').map(result=>result.value);
+ const failures=results.filter(result=>result.status==='rejected').map(result=>result.reason);
+ if(!partitions.length) throw failures[0];
  const flows=new Map(), series=new Map();
  for(const part of partitions){
   for(const flow of part.flows) if(flow.flow||!flows.has(flow.id)) flows.set(flow.id,flow);
@@ -61,7 +65,7 @@ async function loadDashboard(query,signal){
   catalog:Object.assign({},...partitions.map(part=>part.catalog)),
   rates:Object.assign({},...partitions.map(part=>part.rates)),
   flows:[...flows.values()],series:[...series.values()],
-  errors:[...new Set(partitions.flatMap(part=>part.errors))],
+  errors:[...new Set([...partitions.flatMap(part=>part.errors),...failures.map(error=>error.message)])],
   attribution:[...new Set(partitions.flatMap(part=>part.attribution))]};
 }
 async function refresh(){
