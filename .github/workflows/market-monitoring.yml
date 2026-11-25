@@ -3,6 +3,11 @@ on:
   schedule:
     - cron: "23,53 * * * *"
   workflow_dispatch:
+    inputs:
+      publish_only:
+        description: Publish quickly using the last saved ERCOT snapshot
+        type: boolean
+        default: true
   repository_dispatch:
     types: [collector_tick]
   push:
@@ -21,16 +26,27 @@ jobs:
     if: github.event_name != 'schedule' || vars.ERCOT_AUTOMATION_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      PUBLISH_ONLY: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_only) }}
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
+        if: env.PUBLISH_ONLY == 'true'
+        with:
+          ref: market-data
+          path: state
+          sparse-checkout: public/data
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        if: env.PUBLISH_ONLY != 'true'
         with:
           ref: market-data
           path: state
       - uses: actions/setup-python@v5
+        if: env.PUBLISH_ONLY != 'true'
         with:
           python-version: "3.12"
           cache: pip
@@ -38,6 +54,7 @@ jobs:
         with:
           node-version: "22"
       - name: Restore the consolidated observation archive
+        if: env.PUBLISH_ONLY != 'true'
         run: |
           mkdir -p archive public/data runtime-data
           python -m pipeline.state restore
@@ -47,6 +64,7 @@ jobs:
           if [ -f state/resource-mapping.json ]; then cp state/resource-mapping.json archive/resource-mapping.json; fi
           if [ -f state/kalshi-markets.json ]; then cp state/kalshi-markets.json archive/kalshi-markets.json; fi
       - name: Verify market calculations
+        if: env.PUBLISH_ONLY != 'true'
         run: |
           pip install -r requirements.txt
           python -m unittest discover -s tests -v
@@ -55,17 +73,28 @@ jobs:
           node --check extensions.js
           node --check predictions.js
       - name: Collect official observations, forecasts, maps and fuel prices
+        if: env.PUBLISH_ONLY != 'true'
         env:
           ERCOT_SUBSCRIPTION_KEY: ${{ secrets.ERCOT_SUBSCRIPTION_KEY }}
           ERCOT_USERNAME: ${{ secrets.ERCOT_USERNAME }}
           ERCOT_PASSWORD: ${{ secrets.ERCOT_PASSWORD }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python -m pipeline.collect --history-days 7
+      - name: Restore the last published market snapshot
+        if: env.PUBLISH_ONLY == 'true'
+        run: |
+          test -s state/public/data/dashboard.json || {
+            echo "::error::No saved market snapshot. Run again with publish_only disabled."
+            exit 1
+          }
+          mkdir -p public/data
+          cp -R state/public/data/. public/data/
       - name: Package both dashboards
         env:
           EUROPE_API_URL: ${{ vars.EUROPE_API_URL }}
         run: node build.js
       - name: Preserve observation history and map captures
+        if: env.PUBLISH_ONLY != 'true'
         run: |
           python -m pipeline.state save
           mkdir -p state/raw state/public/data state/enrichment
@@ -116,7 +145,7 @@ jobs:
       - uses: actions/deploy-pages@v4
         id: deploy
       - name: Retain failed-run data for recovery
-        if: failure()
+        if: failure() && env.PUBLISH_ONLY != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: collector-recovery-${{ github.run_id }}
