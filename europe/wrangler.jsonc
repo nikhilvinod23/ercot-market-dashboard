@@ -2,5 +2,7 @@
   "name": "european-power-dashboard-api",
   "main": "worker.js",
   "compatibility_date": "2026-11-24",
-  "compatibility_flags": ["nodejs_compat", "nodejs_compat_populate_process_env"]
+  "compatibility_flags": ["nodejs_compat", "nodejs_compat_populate_process_env"],
+  "r2_buckets": [{"binding": "MARKET_ARCHIVE", "bucket_name": "ercot-dashboard"}],
+  "triggers": {"crons": ["7 * * * *", "17 * * * *", "27 * * * *"]}
 }

@@ -34,7 +34,7 @@ fs.mkdirSync(europeOut, { recursive: true });
 for (const file of ["index.html", "styles.css", "app.js", "map.js", "market.js", "zones.js", "demo.js"]) {
   fs.copyFileSync(path.join(__dirname, "europe", file), path.join(europeOut, file));
 }
-let publishedEndpoint = "";
+let publishedEndpoint = "https://european-power-dashboard-api.nikhilvinod23.workers.dev/api/dashboard";
 if (process.env.EUROPE_API_URL) {
   const url = new URL(process.env.EUROPE_API_URL);
   if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash)

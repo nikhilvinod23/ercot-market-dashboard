@@ -1,5 +1,11 @@
 # Publication and scaling
 
+## European observation archive
+
+The European Worker reads live views and historical date selections from Rebase. Three staggered hourly triggers collect disjoint sets of bidding zones for the same UTC hour. Each writes a compressed observation record to the existing private Cloudflare R2 bucket under `europe/observations/YYYY/MM/DD/HH/`. Records preserve the market snapshot, a two-hour window of reported values, source timestamps, and collection time. This accumulates forward from deployment and leaves Rebase's earlier history with Rebase.
+
+The GitHub Pages build uses the deployed Worker for Europe. `EUROPE_API_URL` can override its URL, and `REBASE_API_KEY` is stored as a Worker secret. The R2 objects are separate from the public dashboard payloads.
+
 The public dashboard is a static GitHub Pages application. Opening or reloading it does not launch the server collector. Its browser checks a small status.json every minute while visible and downloads new datasets only after their publication timestamp changes. Source timestamps and publication timestamps are distinct; a successful publication can still contain a retained stale source.
 
 GitHub Actions targets collection at minutes 23 and 53, publishes on changes to the deployment branch, and supports manual dispatch and repository_dispatch with event_type collector_tick. GitHub cron is best effort: inspected runs on October 10–13 had several-hour gaps despite an hourly schedule. More frequent scheduling reduces expected gaps but cannot guarantee 30-minute freshness. For a strict service target, use an independent hosted scheduler to send collector_tick after a public status check finds publication older than 75 minutes, or run the collector on a continuously available host. Do not place a GitHub access token in the browser. Authenticate scheduler calls server-side with narrowly scoped repository access. Use the existing workflow concurrency group to avoid overlapping archive writers.
