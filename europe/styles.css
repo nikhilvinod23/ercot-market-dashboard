@@ -71,3 +71,36 @@ footer{padding:10px 20px;border-top:1px solid var(--border);background:#111a25}.
 .fuel-subtypes{margin-left:15px;padding-left:8px;border-left:1px solid var(--border);color:var(--sub)}
 
 .market-home{display:inline-flex;align-items:center;padding:.45rem .65rem;border:1px solid var(--border);border-radius:5px;color:var(--ink);text-decoration:none;font-size:12px}
+
+@media(max-width:850px){
+ body{min-width:0;width:100%;height:auto;overflow:visible}
+ .top{padding:12px;gap:12px;min-width:0}
+ .brand{min-width:0;width:100%}
+ .controls{width:100%;gap:8px}
+ .controls label{flex:1;min-width:0}
+ .controls select{min-width:0;width:100%}
+ .status{width:100%}
+ main{display:flex;min-width:0;height:auto}
+ .map-shell{flex:none;display:flex;flex-direction:column;min-height:0;padding-bottom:0}
+ #map{position:relative;inset:auto;order:2;flex:none;width:100%;height:clamp(360px,60svh,600px)}
+ .layers{position:relative;inset:auto;order:0;width:auto;max-height:none;margin:10px}
+ .layer-body{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+ .layer-body label{min-width:0}
+ .zone-select select{min-width:0}
+ .legend{position:relative;inset:auto;order:1;width:auto;margin:0 10px 8px}
+ .nav{top:auto;bottom:44px;right:10px;z-index:2}
+ .nav button{width:40px;height:36px}
+ .map-foot{position:relative;inset:auto;order:3;margin:8px 10px;min-height:20px;overflow-wrap:anywhere}
+ aside,aside:has(>details:not([open])){width:100%;min-width:0;overflow:visible}
+ footer{padding:12px}
+ .timeline{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;gap:8px}
+ .timeline label,.timeline #local,.timeline #apply{grid-column:1/-1}
+ .timeline input{width:100%;min-width:0}
+ .credits{overflow-wrap:anywhere}
+ button,select,input[type=datetime-local]{min-height:40px;max-width:100%}
+ .key-items{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:360px){
+ .layer-body{grid-template-columns:minmax(0,1fr)}
+ .key-items{grid-template-columns:minmax(0,1fr)}
+}

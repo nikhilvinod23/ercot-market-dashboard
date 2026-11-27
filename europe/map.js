@@ -257,7 +257,7 @@ export function createMap(root,callbacks){
   };
   for(const position of positions){include(position,0);include(position,selected?elevationFor(selected):0);}
   if(!selected) for(const [id,zone] of markets) include(zone.position,elevationFor(id));
-  const left=width>400?204:width>320?156:24;
+  const left=root.closest('.map-shell')?.clientWidth<=850?24:204;
   const x=(bounds[0]+bounds[2])/2,y=(bounds[1]+bounds[3])/2;
   const scale=Math.min(Math.max(1,width-left-58)/Math.max(2,bounds[2]-bounds[0]),
    Math.max(1,height-110)/Math.max(2,bounds[3]-bounds[1]),selected?115:Infinity);
@@ -289,7 +289,7 @@ export function createMap(root,callbacks){
     scale:from.scale*(target.scale/from.scale)**progress};
    if(t<1) schedule();else animation=null;
   }
-  const left=width>400?204:width>320?156:24;
+  const left=root.closest('.map-shell')?.clientWidth<=850?24:204;
   originX=(width+left-30)/2+camera.x;
   originY=(height-18)/2+camera.y;
   centerX=view.x;centerY=view.y;baseScale=view.scale*camera.zoom;

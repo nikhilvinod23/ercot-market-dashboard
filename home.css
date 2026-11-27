@@ -10,3 +10,11 @@ nav a:focus-visible{outline:2px solid #fff;outline-offset:3px}
 nav img{display:block;width:100%;max-width:100%;height:auto;aspect-ratio:768/400;object-fit:contain;border:1px solid #252525;border-radius:.45rem}
 h2{margin:0;font-size:1.5rem}
 p{margin:0;color:#b1b1b1}
+
+@media(max-width:600px){
+ body{padding:24px 14px;place-items:start center}
+ h1{font-size:2.2rem;margin-bottom:24px}
+ nav{grid-template-columns:minmax(0,1fr)}
+ nav a{padding:14px}
+ nav img{max-width:100%;object-fit:contain}
+}
